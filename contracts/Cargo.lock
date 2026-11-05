@@ -1968,6 +1968,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-arena"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
 name = "mock-ft-receiver"
 version = "0.1.0"
 dependencies = [
@@ -4142,6 +4150,19 @@ name = "utf_types"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
+
+[[package]]
+name = "vault"
+version = "0.1.0"
+dependencies = [
+ "cargo-near-build",
+ "near-api",
+ "near-contract-standards",
+ "near-sandbox",
+ "near-sdk",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "vcpkg"
