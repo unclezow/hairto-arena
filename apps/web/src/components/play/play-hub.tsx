@@ -27,6 +27,7 @@ import './play-hub.css';
 import { OWNED_FIGHTERS, selectMockFighter, useSelectedFighter } from './mock-fighters';
 import { useBalances } from '@/hooks/use-balances';
 import { useFighterReadiness } from '@/hooks/use-fighter-readiness';
+import { useActiveBots } from '@/hooks/use-active-bots';
 import { useOwnedCharacters } from '@/hooks/use-lobby-data';
 import { DEFAULT_BOT_LEVEL, pickDefaultMarket } from '@/hooks/use-start-duel';
 import { useNearWallet } from '@/lib/near/context';
@@ -126,6 +127,9 @@ export function PlayHub({
   });
   const session = useWalletSession();
   const router = useRouter();
+  const activeBots = useActiveBots();
+  // A level that is not active on the arena (for example the Oracle before it is configured) is never offered.
+  if (!activeBots.levels.includes(botLevel) && activeBots.levels[0]) setBotLevel(activeBots.levels[0]);
   const { config } = useNearWallet();
   // Everything personal (address, BATTLE, vault, Leaderboard, Store) waits for the API sign-in, not just the wallet.
   const loggedIn = !!session.token;
@@ -696,6 +700,7 @@ export function PlayHub({
             </div>
             <BotSelector
               value={botLevel}
+              levels={activeBots.levels}
               disabled={battleBusy}
               onChange={(level) => {
                 audio.ui();

@@ -8,17 +8,23 @@ const STRATEGIES: Partial<Record<BotLevel, string>> = {
   1: 'An unpredictable rookie with a short-term trading style.',
   2: 'Follows momentum and holds through a clear trend.',
   3: 'Trades against stretched prices, looking for a reversal.',
+  4: 'An AI that reads the price window and signs every decision.',
 };
 
 export function BotSelector({
   value,
+  levels = [1, 2, 3],
   onChange,
   disabled,
 }: {
   value: BotLevel;
+  /** Active levels from the arena, ascending. */
+  levels?: BotLevel[];
   onChange: (level: BotLevel) => void;
   disabled: boolean;
 }) {
+  const at = Math.max(0, levels.indexOf(value));
+  const step = (delta: number) => levels[(at + delta + levels.length) % levels.length] ?? value;
   const id = useId();
   const points = SCORE.pointsByBotLevel[value];
   return (
@@ -35,7 +41,7 @@ export function BotSelector({
           type="button"
           aria-label="Previous bot"
           disabled={disabled}
-          onClick={() => onChange(value === 1 ? 3 : ((value - 1) as BotLevel))}
+          onClick={() => onChange(step(-1))}
         >
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
@@ -56,7 +62,7 @@ export function BotSelector({
           type="button"
           aria-label="Next bot"
           disabled={disabled}
-          onClick={() => onChange(value === 3 ? 1 : ((value + 1) as BotLevel))}
+          onClick={() => onChange(step(1))}
         >
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
