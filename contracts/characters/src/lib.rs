@@ -9,6 +9,7 @@ pub mod admin;
 pub mod catalog;
 pub mod equip;
 pub mod events;
+pub mod metadata;
 pub mod mt_core;
 pub mod mt_resolver;
 pub mod mt_views;
