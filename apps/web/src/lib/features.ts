@@ -10,6 +10,7 @@
  * near-web-economy: hooks/use-vault.ts, hooks/use-game-assets.ts,
  * hooks/use-lobby-data.ts (equip), components/mvp/{claim-list,backer-panel,economy-panel,admin-panel}.tsx.
  * hooks/use-economy-data.ts and components/mvp/wallet-bar.tsx (legacy useTx).
+ * components/play/faucet-button.tsx (claim) and vault-dialog.tsx (deposit/withdraw).
  */
 export function featureReady(feature: 'duel' | 'economy'): boolean {
   void feature;
