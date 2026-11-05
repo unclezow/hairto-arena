@@ -3,10 +3,13 @@
 import { STABLE_DECIMALS, VAULTS } from '@hairto-arena/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { formatUnits, parseUnits } from '@/lib/amount';
-import { formatAmount } from '@/hooks/use-balances';
+import { formatAmount, useBalances } from '@/hooks/use-balances';
 import { FIGHTER_MINIMUM, useVault } from '@/hooks/use-vault';
 import './connect-modal.css';
 import './vault-dialog.css';
+
+/** Registration (0.01 NEAR, first deposit only) plus gas for the transfer. */
+const DEPOSIT_GAS_RESERVE = 20_000_000_000_000_000_000_000n; // 0.02 NEAR
 
 export type VaultMode = 'deposit' | 'withdraw';
 
@@ -26,6 +29,7 @@ export function VaultDialog({
   onClose: () => void;
 }) {
   const vault = useVault();
+  const balances = useBalances();
   const titleId = useId();
   const root = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<VaultMode>(initialMode);
@@ -54,7 +58,9 @@ export function VaultDialog({
   const problem = !valid
     ? 'Enter an amount.'
     : mode === 'deposit'
-      ? parsed! > vault.wallet
+      ? balances.near < DEPOSIT_GAS_RESERVE
+        ? 'Add testnet NEAR for gas first (near-faucet.io).'
+        : parsed! > vault.wallet
         ? 'Not enough USDC in your wallet. Claim test USDC from the balance menu.'
         : vault.principal + parsed! < FIGHTER_MINIMUM
           ? `The Fighter pool needs at least ${VAULTS.fighter.minDepositUsd} USDC.`
