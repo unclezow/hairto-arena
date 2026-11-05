@@ -17,13 +17,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "sync:rebuild": "node dist/indexer-sync/rebuild.js",
-    "sync:repair-bots": "node dist/indexer-sync/repair-bots.js",
     "db:seed": "node dist/price/seed.js",
     "season:verify": "node dist/keeper/verify-cli.js"
   },
