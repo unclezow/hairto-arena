@@ -16,20 +16,22 @@ export interface Market {
 
 const NY = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
-  weekday: 'short',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
   hourCycle: 'h23',
 });
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Weekday (0 = Sunday) and minute of day in New York. */
 export function newYorkClock(now: Date): { day: number; minute: number } {
   const parts = Object.fromEntries(NY.formatToParts(now).map((p) => [p.type, p.value]));
-  return {
-    day: WEEKDAYS.indexOf(parts.weekday!),
-    minute: Number(parts.hour) * 60 + Number(parts.minute),
-  };
+  // The New York calendar date, read back as a UTC date, gives the New York weekday.
+  const day = new Date(
+    Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)),
+  ).getUTCDay();
+  return { day, minute: Number(parts.hour) * 60 + Number(parts.minute) };
 }
 
 const FIVE_PM = 17 * 60;
