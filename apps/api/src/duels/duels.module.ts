@@ -12,6 +12,8 @@ import { DuelsService } from './duels.service.js';
 import { EligibilityService } from './eligibility.service.js';
 import { ReplayService } from './replay.service.js';
 import { DuelOwnerGuard } from './duel-owner.guard.js';
+import { DuelTxRelayService } from './duel-tx-relay.service.js';
+import { OutcomeStream } from '../realtime/outcome-stream.js';
 
 /** HTTP side of duels. Signing seed tickets is the bot worker's job (see BotClient); the Fighter starts the duel. */
 @Module({
@@ -20,6 +22,8 @@ import { DuelOwnerGuard } from './duel-owner.guard.js';
   providers: [
     DuelsService,
     DuelOwnerGuard,
+    DuelTxRelayService,
+    OutcomeStream,
     EligibilityService,
     DuelViewService,
     ChainDuelOverlay,

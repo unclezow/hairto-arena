@@ -13,7 +13,7 @@ import {
   type Eligibility,
   type TicketRequestBody,
 } from './eligibility.service.js';
-import { onchainKey, type PlacedStep } from './onchain-steps.js';
+import { onchainKey, stepKey, type PlacedStep } from './onchain-steps.js';
 
 /** One ticket request per Fighter at a time; a slow prime or worker answer cannot be raced. */
 const TICKET_LOCK_SEC = 30;
@@ -24,6 +24,7 @@ export interface TicketResponse extends IssuedTicket, Eligibility {
 }
 
 const ticketLockKey = (fighter: string) => `duel:ticket:${fighter}`;
+const byPosition = (a: PlacedStep, b: PlacedStep) => a.block - b.block || a.logIndex - b.logIndex;
 
 @Injectable()
 export class DuelsService {
@@ -76,8 +77,8 @@ export class DuelsService {
   }
 
   /**
-   * Every on-chain step of a duel with its transaction hash, oldest first. A live event source can fill Redis
-   * within seconds; the indexer's rows arrive later and win when both have the same receipt event.
+   * Every on-chain step of a duel with its transaction hash, oldest first. The live relay fills Redis within
+   * seconds; the indexer's rows arrive later and win when both have the same event.
    */
   async onchain(id: bigint) {
     const duel = await this.load(id);
@@ -88,31 +89,33 @@ export class DuelsService {
       this.redis.client.lrange(onchainKey(id.toString()), 0, -1).catch(() => [] as string[]),
     ]);
 
-    const steps = new Map<string, PlacedStep>();
-    for (const raw of live) {
-      const step = JSON.parse(raw) as PlacedStep;
-      steps.set(`${step.txHash}:${step.logIndex}`, step);
-    }
-    for (const r of rows) {
-      steps.set(`${r.txHash}:${r.logIndex}`, {
+    // Indexed steps first, in chain order; live steps the indexer has not reached yet follow in relay order.
+    const indexed: PlacedStep[] = rows
+      .map((r) => ({
         kind: r.kind as PlacedStep['kind'],
-        side: r.player === null ? null : r.player === bot ? 'bot' : 'fighter',
+        side: r.player === null ? null : r.player === bot ? ('bot' as const) : ('fighter' as const),
         txHash: r.txHash,
         at: r.timestamp.toISOString(),
         // Only a close reveals the direction, and only a close or penalty carries a result.
-        dir: r.dir === 1 ? 'LONG' : r.dir === 2 ? 'SHORT' : null,
+        dir: r.dir === 1 ? ('LONG' as const) : r.dir === 2 ? ('SHORT' as const) : null,
         pnlPpm: r.pnlPpm,
         selfDelta: r.selfDelta,
         opponentDelta: r.opponentDelta,
         block: Number(r.blockNumber),
         logIndex: r.logIndex,
-      });
+      }))
+      .sort(byPosition);
+    const known = new Set(indexed.map(stepKey));
+    const pending = new Map<string, PlacedStep>();
+    for (const raw of live) {
+      const step = JSON.parse(raw) as PlacedStep;
+      if (!known.has(stepKey(step))) pending.set(stepKey(step), step);
     }
     return {
       arena: this.arena.contractId,
-      txs: [...steps.values()]
-        .sort((a, b) => a.block - b.block || a.logIndex - b.logIndex)
-        .map(({ block: _block, logIndex: _logIndex, ...step }) => step),
+      txs: [...indexed, ...[...pending.values()].sort(byPosition)].map(
+        ({ block: _block, logIndex: _logIndex, ...step }) => step,
+      ),
     };
   }
 

@@ -1,10 +1,13 @@
 /**
- * A duel event of the arena (NEP-297 `hairto` standard) with where it happened. The live event source arrives
- * with the indexer; until then only indexed rows produce steps. Seeds are base64.
+ * A duel event of the arena (NEP-297 `hairto` standard) with where it happened, as the live relay reads it from
+ * `chain:outcomes`. Seeds are base64.
  */
 export type ChainDuelEvent = {
   /** Base58 hash of the transaction the receipt belongs to. */
   txHash: string;
+  /** Receipt that logged the event; with `logIndex` it names the event exactly once. */
+  receiptId?: string;
+  /** Position of the relayed outcome in `chain:outcomes` (only for ordering live events among themselves). */
   block: bigint;
   /** Index of the event among the receipt's logs. */
   logIndex: number;
@@ -53,8 +56,15 @@ export interface OnchainStep {
   opponentDelta: number | null;
 }
 
-/** A step with its position in the chain, to order and de-duplicate the two sources. */
+/**
+ * A step with its position, to order the steps of one source. Live steps are numbered by relay, indexed rows by
+ * block, so the two are matched by `stepKey` instead.
+ */
 export type PlacedStep = OnchainStep & { block: number; logIndex: number };
+
+/** The same event from the live relay and from the indexer: one step per transaction, kind and side. */
+export const stepKey = (s: Pick<OnchainStep, 'txHash' | 'kind' | 'side'>) =>
+  `${s.txHash}:${s.kind}:${s.side ?? ''}`;
 
 export const onchainKey = (duelId: string) => `duel:onchain:${duelId}`;
 export const ONCHAIN_TTL_SEC = 24 * 60 * 60;

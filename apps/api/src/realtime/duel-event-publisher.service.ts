@@ -17,8 +17,10 @@ import { DuelLiveStore, liveHp, type DuelLive } from './duel-live.js';
 
 export const CURSOR_KEY = 'realtime:events:cursor';
 const LOCK_KEY = 'realtime:events:lock';
-const seenKey = (ev: ChainDuelEvent) => `realtime:events:seen:${ev.txHash}:${ev.logIndex}`;
-/** Most blocks read in one run, so catching up after downtime stays bounded. */
+/** One key per event: the worker and a Fighter relay of the same transaction mark the same receipt log. */
+export const seenKey = (ev: ChainDuelEvent) =>
+  `realtime:events:seen:${ev.receiptId ?? ev.txHash}:${ev.logIndex}`;
+/** Most relayed outcomes read in one run, so catching up after downtime stays bounded. */
 const MAX_BLOCKS_PER_RUN = 500n;
 /**
  * Further behind than this, the cursor jumps to `head - MAX_BLOCKS_PER_RUN`: a duel lasts under a minute, so live
@@ -35,9 +37,9 @@ export interface PublishReport {
 const lower = (a: string) => a.toLowerCase();
 
 /**
- * Follows the arena's duel events and publishes them in realtime. One instance leads
- * at a time; it reads blocks from a cursor kept in Redis, so a standby resumes where the leader stopped, and
- * every event is deduplicated by (tx, log). The events are provisional: the indexed record comes seconds later.
+ * Follows the arena's duel events and publishes them in realtime. One instance leads at a time; it reads the
+ * relayed outcomes from a cursor kept in Redis, so a standby resumes where the leader stopped, and every event is
+ * deduplicated by (receipt, log index). The events are provisional: the indexed record comes seconds later.
  */
 @Injectable()
 export class DuelEventPublisher implements OnModuleInit, OnModuleDestroy {

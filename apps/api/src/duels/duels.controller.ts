@@ -19,6 +19,12 @@ import { z } from 'zod';
 import { DuelsService } from './duels.service.js';
 import { ReplayService } from './replay.service.js';
 import { DuelOwnerGuard } from './duel-owner.guard.js';
+import { DuelTxRelayService } from './duel-tx-relay.service.js';
+
+const txSchema = z.object({
+  /** Base58 of a 32-byte hash. */
+  txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'must be a base58 transaction hash'),
+});
 
 const ticketSchema = z.object({
   assetId: z.number().int().positive(),
@@ -37,6 +43,7 @@ export class DuelsController {
   constructor(
     private readonly duels: DuelsService,
     private readonly replays: ReplayService,
+    private readonly relays: DuelTxRelayService,
   ) {}
 
   /**
@@ -51,6 +58,20 @@ export class DuelsController {
     @Body(new ZodValidationPipe(ticketSchema)) body: z.infer<typeof ticketSchema>,
   ) {
     return this.duels.requestTicket(user.accountId, body);
+  }
+
+  /**
+   * The Fighter's wallet sent a transaction of this duel: the API reads its outcome from RPC and relays the
+   * arena's events to the live view. Ownership is checked against the chain, since a new duel is not indexed yet.
+   */
+  @Post(':id/tx')
+  @HttpCode(202)
+  relayTx(
+    @CurrentUser() user: SessionWithToken,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(txSchema)) body: z.infer<typeof txSchema>,
+  ) {
+    return this.relays.relay(duelId(id), user.accountId, body.txHash);
   }
 
   @Get(':id')

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { AccountId, BotLevel } from '@hairto-arena/shared';
-import type { TxExecutionStatus } from 'near-kit';
+import type { FinalExecutionOutcome, TxExecutionStatus } from 'near-kit';
 import type {
   ActiveSlot,
   ArenaConfigView,
@@ -32,10 +32,20 @@ const TGAS = {
   rollover_unclaimed: 30,
 } as const;
 
+/** Told of every bot or keeper transaction the arena executed; it must not throw. */
+export type OutcomeListener = (outcome: FinalExecutionOutcome) => void | Promise<void>;
+
 /** Typed calls into the arena contract, for every method the backend uses. */
 @Injectable()
 export class ArenaClient {
+  private readonly listeners: OutcomeListener[] = [];
+
   constructor(private readonly near: NearService) {}
+
+  /** The worker's realtime relay listens here, so the live duel view hears the backend's own transactions. */
+  onOutcome(listener: OutcomeListener): void {
+    this.listeners.push(listener);
+  }
 
   get contractId(): AccountId {
     return this.near.contracts.arena;
@@ -51,17 +61,25 @@ export class ArenaClient {
     return value;
   }
 
-  private call<T = void>(
+  private async call<T = void>(
     role: SignerRole,
     method: keyof typeof TGAS | 'push_ticks',
     args: object,
     options: { tgas?: number; waitUntil?: TxExecutionStatus } = {},
   ): Promise<CallResult<T>> {
     const tgas = options.tgas ?? (method === 'push_ticks' ? 30 : TGAS[method]);
-    return this.near.call<T>(role, this.contractId, method, args, {
+    const result = await this.near.call<T>(role, this.contractId, method, args, {
       tgas,
       waitUntil: options.waitUntil,
     });
+    // Ticks log no duel events. Listeners run in the background: the caller never waits for the relay.
+    if (role !== 'pusher') {
+      for (const listener of this.listeners)
+        void Promise.resolve()
+          .then(() => listener(result.outcome))
+          .catch(() => undefined);
+    }
+    return result;
   }
 
   // ---- configuration, assets and bots ----
