@@ -192,7 +192,8 @@ export const envSchema = z.object({
   ADMIN_ACCOUNTS: accountList,
   /** App id: the NEP-413 `recipient` of the sign-in challenge, also shown in its message. */
   AUTH_DOMAIN: z.string().default('localhost'),
-  NONCE_TTL_SEC: z.coerce.number().int().positive().default(300),
+  /** Lifetime of a sign-in challenge; the signature's nonce timestamp must be younger than this too. */
+  NONCE_TTL_SEC: z.coerce.number().int().positive().default(600),
   SESSION_TTL_SEC: z.coerce
     .number()
     .int()
