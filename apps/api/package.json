@@ -22,7 +22,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "node dist/price/seed.js",
-    "season:verify": "node dist/keeper/verify-cli.js"
+    "season:verify": "node dist/keeper/verify-cli.js",
+    "sync:rebuild": "node dist/indexer-sync/rebuild.js"
   },
   "dependencies": {
     "@hairto-arena/shared": "workspace:*",

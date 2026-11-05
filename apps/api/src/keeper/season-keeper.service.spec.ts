@@ -50,7 +50,12 @@ function inputs(): ResultInputs {
   };
 }
 
-function setup(state: { season: ChainSeason; now: number; chainTwab?: bigint }) {
+function setup(state: {
+  season: ChainSeason;
+  now: number;
+  chainTwab?: bigint;
+  lag?: string | null;
+}) {
   const sent: string[] = [];
   let posted: PostedResults | null = null;
   const runs = new Map<number, Record<string, unknown>>();
@@ -104,7 +109,7 @@ function setup(state: { season: ChainSeason; now: number; chainTwab?: bigint }) 
     client: {
       set: async () => 'OK',
       del: async () => 1,
-      get: async () => '0',
+      get: async () => (state.lag === undefined ? '0' : state.lag),
     },
   };
   const config = new ConfigService(validateEnv({})) as never;
@@ -142,6 +147,26 @@ describe('SeasonKeeper', () => {
       expect(verifyProof(root, r.address, BigInt(r.amount), r.proof)).toBe(true);
     }
     expect(s.runs.get(1)).toMatchObject({ state: 'posted', postedTxHash: 'TxP' });
+  });
+
+  it('does not post while the indexer lags 25 blocks at season close, and says why', async () => {
+    const s = setup({
+      season: chainSeason({ phase: 'Closed' }),
+      now: END + 20 * 60_000,
+      lag: '25',
+    });
+    await expect(s.keeper.runOnce()).resolves.toEqual([
+      { seasonId: 1, action: 'blocked:indexer-lag' },
+    ]);
+    expect(s.sent).toEqual([]);
+    const unknown = setup({
+      season: chainSeason({ phase: 'Closed' }),
+      now: END + 20 * 60_000,
+      lag: null,
+    });
+    await expect(unknown.keeper.runOnce()).resolves.toEqual([
+      { seasonId: 1, action: 'blocked:indexer-unknown' },
+    ]);
   });
 
   it('refuses to post when an indexed TWAB differs from vault.twab_of beyond the tolerance', async () => {

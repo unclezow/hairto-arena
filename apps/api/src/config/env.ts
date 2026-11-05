@@ -247,8 +247,6 @@ export const envSchema = z.object({
     .transform((v) => v === 'true'),
   SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   SYNC_BATCH_SIZE: z.coerce.number().int().positive().default(500),
-  /** Only rows at or below `head - SYNC_FINALITY_BLOCKS` are copied (NEAR blocks are final after about 2). */
-  SYNC_FINALITY_BLOCKS: z.coerce.number().int().nonnegative().default(2),
   /** Blocks re-read before the stored cursor on every run, as a guard against partial writes. */
   SYNC_REPLAY_WINDOW_BLOCKS: z.coerce.number().int().nonnegative().default(10),
 
