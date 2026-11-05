@@ -156,3 +156,15 @@ test('a new Backer can change role selection and enter the fenced Backer page', 
   await expect(page.getByText('Backer actions are not available yet.')).toBeVisible();
   await expect(page.getByText('0.1 NEAR (gas) · 1,000 USDC (mock)', { exact: true })).toBeVisible();
 });
+
+test('direct live-arena links are fenced and do not request a duel ticket', async ({ page }) => {
+  await mockWalletAndApi(page);
+  const tickets: string[] = [];
+  page.on('request', (request) => { if (request.url().includes('/duels/ticket')) tickets.push(request.url()); });
+  await page.goto('/arena?duel=1');
+  const dialog = page.getByRole('alertdialog', { name: 'DUELS NOT AVAILABLE YET' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'TRY AGAIN' }).click();
+  await expect(page).toHaveURL(/\/play\/lobby$/);
+  expect(tickets).toEqual([]);
+});

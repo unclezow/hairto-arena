@@ -5,6 +5,7 @@ import type { NearConnector } from '@hot-labs/near-connect';
 import { getConnector, watchConnection, type WalletConnection } from './connector';
 import { fallbackConfig, loadNearConfig, type NearConfig } from './config';
 import { setWalletSessionConnection } from '../wallet-auth';
+import { configureExplorer } from '../explorer';
 
 interface NearContextValue extends WalletConnection {
   config: NearConfig;
@@ -21,6 +22,7 @@ export function NearProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     let stop: (() => void) | undefined;
     void loadNearConfig(controller.signal).then(async (config) => {
+      configureExplorer(config.explorerUrl);
       // The isolated signing popup does not need another wallet selector instance.
       if (window.location.pathname === '/sign') return;
       const connector = await getConnector(config);
