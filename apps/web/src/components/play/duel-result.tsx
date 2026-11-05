@@ -8,10 +8,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDuelOnchain, type OnchainKind } from '@/hooks/use-duel-onchain';
-import { featureReady, featureUnavailable } from '@/lib/features';
 import { api, ApiError } from '@/lib/api';
 import { takeResultFromArena } from '@/lib/duel-storage';
 import { useWalletSession } from '@/hooks/use-wallet-session';
+import { useSeedAudit } from '@/hooks/use-seed-audit';
 import { explorerAddress, explorerTx, shortHash } from '@/lib/explorer';
 import './duel-result.css';
 
@@ -90,7 +90,7 @@ interface DuelView {
 }
 
 interface Replay {
-  bot: { seed: string | null; verification: { status: string } | null };
+  bot: { seed: string | null; seedHash: string | null; verification: { status: string } | null };
 }
 
 const TERMINAL = new Set(['FINISHED', 'FORFEITED', 'VOIDED']);
@@ -158,8 +158,8 @@ export function DuelResult({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const duel = useQuery({
     queryKey: ['duel', id, address, token],
-    queryFn: ({ signal }) => { if (!featureReady('duel')) return featureUnavailable('duel'); return api<DuelView>(`/duels/${id}`, { signal }); },
-    enabled: featureReady('duel') && !!token,
+    queryFn: ({ signal }) => api<DuelView>(`/duels/${id}`, { signal }),
+    enabled: !!token,
     retry: false,
     // Settlement lands a while after the round, then points and the seed; keep reading until they do.
     refetchInterval: (q) => {
@@ -177,8 +177,8 @@ export function DuelResult({ id }: { id: string }) {
   const terminal = !!d && TERMINAL.has(d.status);
   const replay = useQuery({
     queryKey: ['duel', id, 'replay', address, token],
-    queryFn: ({ signal }) => { if (!featureReady('duel')) return featureUnavailable('duel'); return api<Replay>(`/duels/${id}/replay`, { signal }); },
-    enabled: featureReady('duel') && terminal && !d.statusFromChain && !!token,
+    queryFn: ({ signal }) => api<Replay>(`/duels/${id}/replay`, { signal }),
+    enabled: terminal && !d.statusFromChain && !!token,
     retry: false,
     refetchInterval: (q) =>
       q.state.error instanceof ApiError && [401, 403, 404].includes(q.state.error.status)
@@ -210,13 +210,20 @@ export function DuelResult({ id }: { id: string }) {
   const contract = onchain.data ? explorerAddress(onchain.data.arena) : null;
   const revealTx = onchain.data?.txs.find((t) => t.kind === 'seed_revealed');
   const seedHref = revealTx ? explorerTx(revealTx.txHash) : null;
+  const createdTx = onchain.data?.txs.find((t) => t.kind === 'created')?.txHash ?? null;
+  const seedAudit = useSeedAudit({
+    createdTx,
+    fighter: d?.fighter ?? null,
+    seed: seed ?? null,
+    seedHash: replay.data?.bot.seedHash ?? null,
+  });
 
   const player = characterMetadata(d?.fighterCharacter ?? 0);
   const opponent = characterMetadata(d?.botCharacter ?? 4);
   const waiting = outcome === 'pending';
   const privateDuel = duel.error instanceof ApiError && duel.error.status === 403;
   const needsSignIn = !token || (duel.error instanceof ApiError && duel.error.status === 401);
-  const displayTitle = !featureReady('duel') ? 'DUELS NOT AVAILABLE YET' : needsSignIn
+  const displayTitle = needsSignIn
     ? 'SIGN IN REQUIRED'
     : privateDuel
       ? 'PRIVATE DUEL'
@@ -288,7 +295,7 @@ export function DuelResult({ id }: { id: string }) {
           </p>
           <h1 className="dr-banner">{displayTitle}</h1>
           <p className="dr-note">
-            {!featureReady('duel') ? 'Live duel results will be enabled in the duel update.' : needsSignIn
+            {needsSignIn
               ? 'Return to the lobby and sign in with the wallet that played this duel.'
               : privateDuel
                 ? 'Only the fighter who played this duel can view its result.'
@@ -411,6 +418,11 @@ export function DuelResult({ id }: { id: string }) {
               {replay.data?.bot.verification && (
                 <span className="dr-badge" data-status={replay.data.bot.verification.status}>
                   {replay.data.bot.verification.status}
+                </span>
+              )}
+              {seedAudit && (
+                <span className="dr-badge" data-status={seedAudit} title="Seed hash recomputed in your browser">
+                  {seedAudit === 'match' ? 'seed match' : 'seed mismatch'}
                 </span>
               )}
             </div>

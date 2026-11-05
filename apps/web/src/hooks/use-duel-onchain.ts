@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { featureReady, featureUnavailable } from '@/lib/features';
 import { api, ApiError } from '@/lib/api';
 import { useWalletSession } from './use-wallet-session';
 
@@ -37,8 +36,8 @@ export function useDuelOnchain(duelId: string | null, live: boolean) {
   const { accountId: address, token } = useWalletSession();
   return useQuery({
     queryKey: ['duel', duelId, 'onchain', address, token],
-    queryFn: ({ signal }) => { if (!featureReady('duel')) return featureUnavailable('duel'); return api<DuelOnchain>(`/duels/${duelId}/onchain`, { signal }); },
-    enabled: featureReady('duel') && !!duelId && !!token,
+    queryFn: ({ signal }) => api<DuelOnchain>(`/duels/${duelId}/onchain`, { signal }),
+    enabled: !!duelId && !!token,
     retry: false,
     refetchInterval: (query) => {
       if (
