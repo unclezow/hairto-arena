@@ -1968,6 +1968,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-ft-receiver"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
+name = "mock-usdc"
+version = "0.1.0"
+dependencies = [
+ "cargo-near-build",
+ "near-api",
+ "near-contract-standards",
+ "near-sandbox",
+ "near-sdk",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "mock-vault"
 version = "0.1.0"
 dependencies = [
@@ -2089,6 +2110,15 @@ dependencies = [
  "json_comments",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "near-contract-standards"
+version = "5.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea737f770ef1dc8f55325ed2200c554f26c14d65e36c4c1342f6878365f1fd11"
+dependencies = [
+ "near-sdk",
 ]
 
 [[package]]
