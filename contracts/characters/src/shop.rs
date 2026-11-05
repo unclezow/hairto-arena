@@ -1,12 +1,17 @@
-//! Treasury proceeds: purchase prices accrue in the contract and anyone can sweep them to the treasury in USDC.
+//! The shop: purchases paid in USDC (mock) through `ft_on_transfer`, free grants by minters, and the sweep of
+//! purchase proceeds to the treasury.
 
 use near_sdk::json_types::U128;
+use near_sdk::serde_json;
 use near_sdk::{
     env, ext_contract, is_promise_success, near, require, AccountId, Gas, NearToken, Promise,
+    PromiseOrValue,
 };
 
+use crate::catalog::parse_token_id;
 use crate::events::ShopEvent;
-use crate::{Characters, CharactersExt};
+use crate::mt_core::MintError;
+use crate::{Characters, CharactersExt, Role};
 
 pub const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(10);
 pub const GAS_FOR_ON_SWEPT: Gas = Gas::from_tgas(10);
@@ -60,5 +65,87 @@ impl Characters {
             }
             .emit();
         }
+    }
+}
+
+#[near(serializers = [json])]
+struct BuyMsg {
+    buy: String,
+}
+
+#[near]
+impl Characters {
+    /// NEP-141 receiver for purchases: `ft_transfer_call(characters, amount, {"buy":"<id>"})` on the configured USDC
+    /// token. Mints one copy to the sender and returns `amount - price` as unused, or returns everything with
+    /// `purchase_rejected`. Calls from any other token fail, so that token refunds its sender.
+    pub fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        require!(
+            env::predecessor_account_id() == self.token_id,
+            "only the USDC token"
+        );
+        match self.purchase(&sender_id, amount.0, &msg) {
+            Ok(price) => PromiseOrValue::Value(U128(amount.0 - price)),
+            Err(reason) => {
+                ShopEvent::PurchaseRejected {
+                    buyer: sender_id,
+                    amount,
+                    reason: reason.to_string(),
+                }
+                .emit();
+                PromiseOrValue::Value(amount)
+            }
+        }
+    }
+
+    /// Minter: mints one free copy of a listed character to `to`, subject to supply and the one-copy rule.
+    pub fn grant(&mut self, to: AccountId, token_id: String) {
+        self.assert_role(Role::Minter);
+        require!(!self.paused, "shop paused");
+        let id = self.listed_id_or_panic(&token_id);
+        if let Err(e) = self.check_mint(id, &to) {
+            env::panic_str(e.reason());
+        }
+        self.mint_one(id, &to, "grant");
+        ShopEvent::CharacterGranted { to, token_id }.emit();
+    }
+}
+
+impl Characters {
+    /// Returns the price paid, or the rejection reason.
+    fn purchase(
+        &mut self,
+        buyer: &AccountId,
+        amount: u128,
+        msg: &str,
+    ) -> Result<u128, &'static str> {
+        if self.paused {
+            return Err("paused");
+        }
+        let token_id = serde_json::from_str::<BuyMsg>(msg)
+            .map_err(|_| "bad_msg")?
+            .buy;
+        let id = parse_token_id(&token_id).ok_or("not_for_sale")?;
+        self.check_mint(id, buyer).map_err(MintError::reason)?;
+        let price = self
+            .listing(id)
+            .map(|l| l.price)
+            .unwrap_or_else(|| env::abort());
+        if amount < price {
+            return Err("underpaid");
+        }
+        self.mint_one(id, buyer, "purchase");
+        self.treasury_balance += price;
+        ShopEvent::CharacterPurchased {
+            buyer: buyer.clone(),
+            token_id,
+            price: U128(price),
+        }
+        .emit();
+        Ok(price)
     }
 }

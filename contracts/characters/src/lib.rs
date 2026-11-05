@@ -8,6 +8,7 @@ use near_sdk::store::{IterableSet, LookupMap, Vector};
 pub mod admin;
 pub mod catalog;
 pub mod events;
+pub mod mt_core;
 pub mod shop;
 
 #[cfg(test)]
