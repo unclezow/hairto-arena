@@ -5,6 +5,7 @@
 
 use near_sdk::store::{IterableSet, LookupMap, Vector};
 
+pub mod admin;
 pub mod events;
 use near_sdk::{near, AccountId, BorshStorageKey, PanicOnDefault};
 
