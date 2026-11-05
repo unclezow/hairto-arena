@@ -176,7 +176,7 @@ export interface HpUpdateEvent {
   duelId: string;
   hpFighter: number;
   hpBot: number;
-  /** Only closed trades are revealed (PRD 12.2). */
+  /** Only closed trades are revealed. */
   lastClosed?: {
     player: AccountId;
     dir: Dir | null;
