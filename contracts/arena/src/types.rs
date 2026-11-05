@@ -1,6 +1,6 @@
 //! Shared ids, enums and stored records.
 
-use near_sdk::json_types::Base64VecU8;
+use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::{near, AccountId};
 
 pub type AssetId = u32;
@@ -69,14 +69,16 @@ pub enum Outcome {
     Draw,
 }
 
-/// Season phase. Only `Active` and `Closed` are stored; `Picking` is computed from the pick window.
-/// `Closed` must stay the last variant here so later phases can be appended without breaking stored values.
+/// Season phase. Stored values are `Active`, `Closed` and `ResultsPosted`; `Picking` is computed from the pick
+/// window and `Finalized` from the end of the dispute window. New variants are only ever appended.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Phase {
     Picking,
     Active,
     Closed,
+    ResultsPosted,
+    Finalized,
 }
 
 impl Phase {
@@ -93,6 +95,58 @@ pub enum Role {
     Guardian,
     Operator,
     Pusher,
+    /// Posts season results.
+    Keeper,
+}
+
+/// The two kinds of season payout, each with its own merkle root.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClaimKind {
+    Prize,
+    Bonus,
+}
+
+/// A Backer pick waiting for the vault's answers.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PendingPick {
+    pub season: SeasonId,
+    pub fighter: AccountId,
+    pub since_ms: u64,
+}
+
+/// Posted results of a closed season.
+#[near(serializers = [borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SeasonResults {
+    pub prize_root: Hash32,
+    pub bonus_root: Hash32,
+    pub prize_total: u128,
+    pub bonus_total: u128,
+    pub prize_claimed: u128,
+    pub bonus_claimed: u128,
+    /// `pot_of(season)` when the results were posted; claims never exceed it.
+    pub pot_at_post: u128,
+    pub results_posted_ms: u64,
+    pub claim_opens_ms: u64,
+    pub rolled_over: bool,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SeasonResultsView {
+    /// 32 bytes each; all zeros when the total is zero.
+    pub prize_root: Base64VecU8,
+    pub bonus_root: Base64VecU8,
+    pub prize_total: U128,
+    pub bonus_total: U128,
+    pub prize_claimed: U128,
+    pub bonus_claimed: U128,
+    pub pot_at_post: U128,
+    pub results_posted_ms: u64,
+    pub claim_opens_ms: u64,
+    pub rolled_over: bool,
 }
 
 #[near(serializers = [borsh])]
@@ -314,6 +368,10 @@ pub struct SeasonView {
     pub dispute_window_ms: u64,
     pub claim_period_ms: u64,
     pub asset_ids: Vec<AssetId>,
+    /// `pot_of(season)` now.
+    pub pot: U128,
+    /// Present once results are posted (also after finalization).
+    pub results: Option<SeasonResultsView>,
 }
 
 /// Season durations applied to seasons started after they are set.
@@ -358,6 +416,10 @@ pub struct ConfigView {
     pub active_damage_config: DamageConfigId,
     pub next_duel_id: DuelId,
     pub current_season: SeasonId,
+    pub claims_paused: bool,
+    /// USDC (mock) token that funds pots and pays claims; set once by the owner.
+    pub token_id: Option<AccountId>,
+    pub total_pots: U128,
 }
 
 #[near(serializers = [json])]
@@ -367,4 +429,5 @@ pub struct RolesView {
     pub guardians: Vec<AccountId>,
     pub operators: Vec<AccountId>,
     pub pushers: Vec<AccountId>,
+    pub keepers: Vec<AccountId>,
 }
