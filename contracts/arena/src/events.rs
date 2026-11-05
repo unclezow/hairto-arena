@@ -1,12 +1,12 @@
 //! NEP-297 events. Every log is `EVENT_JSON:{"standard":"hairto","version":"1.0.0","event":"<name>","data":{...}}`.
 
-use near_sdk::json_types::Base64VecU8;
+use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::{near, AccountId};
 
 use crate::damage::DamageConfig;
 use crate::types::{
-    AssetId, BotLevel, DamageConfigId, Dir, DuelId, DuelParams, Durations, Outcome, Role, SeasonId,
-    Side, TickIndex,
+    AssetId, BotLevel, ClaimKind, DamageConfigId, Dir, DuelId, DuelParams, Durations, Outcome,
+    Role, SeasonId, Side, TickIndex,
 };
 
 #[near(serializers = [json])]
@@ -157,4 +157,76 @@ pub enum ArenaEvent {
     SeasonClosed { season: SeasonId, closed_ms: u64 },
     #[event_version("1.0.0")]
     DurationsUpdated { durations: Durations },
+
+    // ---- season economy ----
+    #[event_version("1.0.0")]
+    Picked {
+        season: SeasonId,
+        backer: AccountId,
+        fighter: AccountId,
+        backer_count: u32,
+    },
+    /// `reason`: `not_eligible_backer`, `not_a_fighter`, `vault_error`, or `pending_timeout`.
+    #[event_version("1.0.0")]
+    PickRejected {
+        season: SeasonId,
+        backer: AccountId,
+        fighter: AccountId,
+        reason: String,
+    },
+    #[event_version("1.0.0")]
+    PotFunded {
+        season: SeasonId,
+        amount: U128,
+        pot: U128,
+    },
+    #[event_version("1.0.0")]
+    PotFundingRejected {
+        token_id: AccountId,
+        sender_id: AccountId,
+        amount: U128,
+        reason: String,
+    },
+    #[event_version("1.0.0")]
+    ResultsPosted {
+        season: SeasonId,
+        prize_root: Base64VecU8,
+        bonus_root: Base64VecU8,
+        prize_total: U128,
+        bonus_total: U128,
+        claim_opens_ms: u64,
+    },
+    #[event_version("1.0.0")]
+    ResultsRejected { season: SeasonId },
+    #[event_version("1.0.0")]
+    PrizeClaimed {
+        season: SeasonId,
+        account_id: AccountId,
+        amount: U128,
+    },
+    #[event_version("1.0.0")]
+    BonusClaimed {
+        season: SeasonId,
+        account_id: AccountId,
+        amount: U128,
+    },
+    /// The USDC transfer of a claim failed and the claim was reversed (credited to `credited_season`).
+    #[event_version("1.0.0")]
+    ClaimFailed {
+        season: SeasonId,
+        kind: ClaimKind,
+        account_id: AccountId,
+        amount: U128,
+        credited_season: SeasonId,
+    },
+    #[event_version("1.0.0")]
+    SeasonRolledOver {
+        from_season: SeasonId,
+        to_season: SeasonId,
+        amount: U128,
+    },
+    #[event_version("1.0.0")]
+    ClaimsPaused { by: AccountId },
+    #[event_version("1.0.0")]
+    ClaimsUnpaused { by: AccountId },
 }
