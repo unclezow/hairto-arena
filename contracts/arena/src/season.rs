@@ -7,7 +7,11 @@ use crate::params::{
     MAX_CLAIM_PERIOD_MS, MAX_CLOSE_DELAY_MS, MAX_DISPUTE_WINDOW_MS, MAX_SEASON_DURATION_MS,
     MIN_CLAIM_PERIOD_MS, MIN_CLOSE_DELAY_MS, MIN_DISPUTE_WINDOW_MS, MIN_SEASON_DURATION_MS,
 };
-use crate::types::{AssetId, Durations, Phase, Role, Season, SeasonId, SeasonView};
+use near_sdk::json_types::{Base64VecU8, U128};
+
+use crate::types::{
+    AssetId, Durations, Phase, Role, Season, SeasonId, SeasonResultsView, SeasonView,
+};
 use crate::{Arena, ArenaExt};
 
 fn require_range(value: u64, min: u64, max: u64, name: &str) {
@@ -23,7 +27,8 @@ impl Arena {
         self.assert_role(Role::Operator);
         if self.current_season != 0 {
             require!(
-                self.phase_of(self.current_season) == Some(Phase::Closed),
+                self.phase_of(self.current_season)
+                    .is_some_and(|p| !p.is_open()),
                 "current season not closed"
             );
         }
@@ -157,7 +162,7 @@ impl Arena {
         let s = self.seasons.get(&season)?;
         Some(SeasonView {
             season,
-            phase: Self::computed_phase(s),
+            phase: self.computed_phase(season, s),
             start_ms: s.start_ms,
             pick_end_ms: s.pick_end_ms,
             end_ms: s.end_ms,
@@ -166,6 +171,19 @@ impl Arena {
             dispute_window_ms: s.dispute_window_ms,
             claim_period_ms: s.claim_period_ms,
             asset_ids: s.asset_ids.clone(),
+            pot: U128(self.pot_amount(season)),
+            results: self.season_results.get(&season).map(|r| SeasonResultsView {
+                prize_root: Base64VecU8(r.prize_root.to_vec()),
+                bonus_root: Base64VecU8(r.bonus_root.to_vec()),
+                prize_total: U128(r.prize_total),
+                bonus_total: U128(r.bonus_total),
+                prize_claimed: U128(r.prize_claimed),
+                bonus_claimed: U128(r.bonus_claimed),
+                pot_at_post: U128(r.pot_at_post),
+                results_posted_ms: r.results_posted_ms,
+                claim_opens_ms: r.claim_opens_ms,
+                rolled_over: r.rolled_over,
+            }),
         })
     }
 
@@ -175,15 +193,30 @@ impl Arena {
 }
 
 impl Arena {
-    fn computed_phase(s: &Season) -> Phase {
+    fn computed_phase(&self, season: SeasonId, s: &Season) -> Phase {
+        let now = Self::now_ms();
         match s.phase {
-            Phase::Active if Self::now_ms() < s.pick_end_ms => Phase::Picking,
+            Phase::Active if now < s.pick_end_ms => Phase::Picking,
+            Phase::ResultsPosted
+                if self
+                    .season_results
+                    .get(&season)
+                    .is_some_and(|r| now >= r.claim_opens_ms) =>
+            {
+                Phase::Finalized
+            }
             phase => phase,
         }
     }
 
     pub(crate) fn phase_of(&self, season: SeasonId) -> Option<Phase> {
-        self.seasons.get(&season).map(Self::computed_phase)
+        self.seasons
+            .get(&season)
+            .map(|s| self.computed_phase(season, s))
+    }
+
+    pub(crate) fn pot_amount(&self, season: SeasonId) -> u128 {
+        self.pot_of.get(&season).copied().unwrap_or(0)
     }
 
     /// The current season if a duel created now (starting after `countdown_ms`) fits inside it.
@@ -195,6 +228,6 @@ impl Arena {
             + crate::params::ROUND_MS
             + crate::params::REVEAL_GRACE_MS
             <= s.end_ms;
-        (Self::computed_phase(s).is_open() && fits).then_some(season)
+        (self.computed_phase(season, s).is_open() && fits).then_some(season)
     }
 }
