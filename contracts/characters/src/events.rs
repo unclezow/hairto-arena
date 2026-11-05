@@ -65,3 +65,35 @@ pub enum ShopEvent {
         granted: bool,
     },
 }
+
+/// One `mt_mint` log entry (NEP-245).
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MtMintLog {
+    pub owner_id: AccountId,
+    pub token_ids: Vec<String>,
+    pub amounts: Vec<U128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+}
+
+/// One `mt_transfer` log entry (NEP-245).
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MtTransferLog {
+    pub old_owner_id: AccountId,
+    pub new_owner_id: AccountId,
+    pub token_ids: Vec<String>,
+    pub amounts: Vec<U128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+}
+
+/// Standard NEP-245 events: `EVENT_JSON:{"standard":"nep245","version":"1.0.0","event":"mt_mint","data":[...]}`.
+#[near(event_json(standard = "nep245"))]
+pub enum MtEvent {
+    #[event_version("1.0.0")]
+    MtMint(Vec<MtMintLog>),
+    #[event_version("1.0.0")]
+    MtTransfer(Vec<MtTransferLog>),
+}
