@@ -1,7 +1,6 @@
 'use client';
 import { POT_SPLIT, STABLE_DECIMALS } from '@hairto-arena/shared';
 import { formatUnits } from '@/lib/amount';
-import { featureReady } from '@/lib/features';
 import { useEconomyData } from '@/hooks/use-economy-data';
 const BPS = 10_000n;
 const YEAR = 365n * 24n * 3600n;
@@ -58,7 +57,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function EconomyPanel() {
   const inputs = useEconomyData();
-  if (!featureReady('economy')) return <p className="text-sm text-white/60">Economy details are not available yet.</p>;
   if (!inputs.data) return <p className="text-sm text-white/60">Loading…</p>;
   const data = inputs.data;
   const { tvlA, tvlB, cfgA, cfgB, funding, potNow } = data;
@@ -78,12 +76,12 @@ export function EconomyPanel() {
     <div className="space-y-6">
       <Section title="Vaults">
         <Row
-          label="Vault A (Fighters), deposited"
+          label="Fighter pool (Fighters), deposited"
           value={usd(tvlA)}
           hint={`min ${usd(cfgA.minDeposit)}`}
         />
         <Row
-          label="Vault B (Backers), deposited"
+          label="Backer pool (Backers), deposited"
           value={usd(tvlB)}
           hint={`min ${usd(cfgB.minDeposit)}`}
         />
@@ -91,18 +89,17 @@ export function EconomyPanel() {
         <Row
           label="Fighters"
           value={fighters === undefined ? '-' : String(fighters)}
-          hint="wallets in Vault A"
+          hint="wallets in Fighter pool"
         />
         <Row
           label="Backers"
           value={backers === undefined ? '-' : String(backers)}
-          hint="wallets in Vault B"
+          hint="wallets in Backer pool"
         />
       </Section>
 
       <Section title="Yield now">
-        <Row label="Earned in Vault A, not harvested yet" value={usd(waiting(0))} />
-        <Row label="Earned in Vault B, not harvested yet" value={usd(waiting(1))} />
+        <Row label="Earned in both pools, not harvested yet" value={usd(waiting(0) + waiting(1))} />
         <Row
           label={`Prize pot, season ${funding}`}
           value={potNow === undefined ? '-' : usd(potNow)}
@@ -111,7 +108,7 @@ export function EconomyPanel() {
         <Row
           label="Yield rate (APY)"
           value={`${Number(rate(0)) / 100}% / ${Number(rate(1)) / 100}%`}
-          hint="Vault A / Vault B, with the demo time multiplier"
+          hint="Fighter pool / Backer pool, with the demo time multiplier"
         />
       </Section>
 
@@ -124,7 +121,7 @@ export function EconomyPanel() {
         <Row
           label="Paid back to Backers as yield"
           value={usd(b.toOwners)}
-          hint={`${pct(cfgB.ownerShareBps)} of Vault B yield after fee`}
+          hint={`${pct(cfgB.ownerShareBps)} of Backer pool yield after fee`}
         />
         <Row label="Prize pot" value={usd(pot)} />
         <Row
