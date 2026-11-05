@@ -1,0 +1,17 @@
+[package]
+name = "mock-ft-receiver"
+description = "Test-only NEP-141 receiver that accepts, refunds, or panics depending on the message"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk.workspace = true
+near-contract-standards.workspace = true
+
+[dev-dependencies]
+near-sdk = { workspace = true, features = ["unit-testing"] }
