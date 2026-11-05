@@ -3,6 +3,7 @@
 mod admin;
 mod damage;
 mod duel;
+mod picks;
 mod score;
 mod season;
 mod ticket;
