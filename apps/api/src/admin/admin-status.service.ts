@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { STUCK_SET } from '../duels/duel-settler.service.js';
+import { HARVEST_NOW_CHANNEL, LAST_HARVEST_KEY } from '../keeper/harvest-job.service.js';
 import { RuntimeFlagsService } from '../flags/runtime-flags.service.js';
 import { ORACLE_KEYS } from '../price/oracle-keys.js';
 import { OracleStatusService } from '../price/oracle-status.service.js';
@@ -52,12 +53,22 @@ export class AdminStatusService {
     }
   }
 
+  /**
+   * Asks the worker for a harvest cycle now (`POST /admin/keeper/harvest`), for demos after raising the vault's
+   * time multiplier. The result shows up as `keeper.lastCycle` in the status.
+   */
+  async requestHarvest() {
+    const workers = await this.redis.publish(HARVEST_NOW_CHANNEL, { at: Date.now() });
+    return { requested: workers > 0, workers };
+  }
+
   private async keeper(): Promise<Component> {
-    const [enabled, dryRun, runs, harvest] = await Promise.all([
+    const [enabled, dryRun, runs, harvest, lastCycle] = await Promise.all([
       this.flags.get('KEEPER_ENABLED'),
       this.flags.get('KEEPER_DRY_RUN'),
       this.prisma.seasonRun.findMany({ orderBy: { seasonId: 'desc' }, take: 5 }),
       this.prisma.harvest.findFirst({ orderBy: { timestamp: 'desc' } }),
+      this.redis.client.get(LAST_HARVEST_KEY),
     ]);
     const failing = runs.filter((r) => r.state !== 'finalized' && r.error);
     return {
@@ -71,6 +82,7 @@ export class AdminStatusService {
         updatedAt: r.updatedAt,
       })),
       lastHarvest: harvest ? { vault: harvest.vault, at: harvest.timestamp } : null,
+      lastCycle: lastCycle ? (JSON.parse(lastCycle) as unknown) : null,
     };
   }
 

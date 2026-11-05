@@ -58,6 +58,13 @@ export class AdminController {
     return this.status.get();
   }
 
+  /** Runs the keeper's harvest cycle now instead of waiting for its interval. */
+  @Post('keeper/harvest')
+  @FreshSignature()
+  harvestNow() {
+    return this.status.requestHarvest();
+  }
+
   @Get('arenas')
   listArenas() {
     return this.arenas.list();
