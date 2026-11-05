@@ -21,6 +21,23 @@ export interface VaultTotalsView {
   payouts_in_flight: number;
 }
 
+export interface PoolConfigView {
+  min_deposit: string;
+  fee_bps: number;
+  owner_share_bps: number;
+}
+
+/** `vault.get_config`, the parts the backend compares with its shared params. */
+export interface VaultConfigView {
+  token_id: string;
+  arena_id: string;
+  paused: boolean;
+  apy_bps: number;
+  time_multiplier: number;
+  fighter: PoolConfigView;
+  backer: PoolConfigView;
+}
+
 export interface StorageBalance {
   total: string;
   available: string;
@@ -37,6 +54,12 @@ export class VaultClient {
 
   private view<T>(method: string, args: object = {}): Promise<T | undefined> {
     return this.near.view<T>(this.contractId, method, args);
+  }
+
+  async getConfig(): Promise<VaultConfigView> {
+    const config = await this.view<VaultConfigView>('get_config');
+    if (!config) throw new Error('vault.get_config returned nothing');
+    return config;
   }
 
   async canPlay(accountId: AccountId): Promise<boolean> {
