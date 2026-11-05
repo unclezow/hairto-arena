@@ -1,0 +1,28 @@
+{
+  "name": "hairto-arena",
+  "private": true,
+  "description": "Hairto Arena: yield-funded paper-trading duels on NEAR",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "contracts:build": "cd contracts && cargo near build non-reproducible-wasm --manifest-path arena/Cargo.toml",
+    "contracts:test": "cd contracts && cargo test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @hairto-arena/api db:generate",
+    "db:migrate": "pnpm --filter @hairto-arena/api db:migrate"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "turbo": "^2.11.10"
+  }
+}

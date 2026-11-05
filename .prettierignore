@@ -1,0 +1,9 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+contracts
+apps/api/src/generated
+deployments
