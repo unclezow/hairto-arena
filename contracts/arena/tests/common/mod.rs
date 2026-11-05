@@ -23,7 +23,8 @@ pub const EXPO: i32 = -8;
 
 static WASMS: OnceLock<(Vec<u8>, Vec<u8>)> = OnceLock::new();
 
-fn build(krate: &str) -> Vec<u8> {
+/// Builds a workspace contract and returns its wasm.
+pub fn build(krate: &str) -> Vec<u8> {
     let manifest = format!("{}/../{krate}/Cargo.toml", env!("CARGO_MANIFEST_DIR"));
     let opts = cargo_near_build::BuildOpts::builder()
         .manifest_path(manifest)
