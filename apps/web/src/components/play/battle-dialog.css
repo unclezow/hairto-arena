@@ -1,0 +1,30 @@
+.battle-dialog {
+  justify-items: center;
+  text-align: center;
+  width: min(420px, 100%);
+}
+.battle-spinner {
+  width: 38px;
+  height: 38px;
+  border: 4px solid #3b5240;
+  border-top-color: #e8d39b;
+  border-radius: 50%;
+  animation: battle-spin 0.9s linear infinite;
+}
+.battle-dialog .connect-error {
+  width: 100%;
+}
+.battle-dialog .connect-actions {
+  animation: none;
+  width: 100%;
+}
+@keyframes battle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .battle-spinner {
+    animation-duration: 3s;
+  }
+}

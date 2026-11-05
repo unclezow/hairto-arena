@@ -1,0 +1,79 @@
+.vault-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.vault-tabs button {
+  padding: 8px;
+  border: 1px solid #dec99266;
+  border-radius: 4px 2px;
+  background: transparent;
+  color: #c1cbb6;
+  font: 800 12px var(--font-mono);
+  letter-spacing: 0.8px;
+  cursor: pointer;
+}
+.vault-tabs button[aria-pressed='true'] {
+  background: linear-gradient(135deg, #5e7845, #2f5a3a);
+  border-color: #dec992;
+  color: #fff4d6;
+}
+.vault-rows {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.vault-rows > div {
+  display: flex;
+  justify-content: space-between;
+  font: 13px var(--font-mono);
+}
+.vault-rows dt {
+  color: #c1cbb6;
+}
+.vault-rows dd {
+  margin: 0;
+  font-weight: 700;
+}
+.vault-rows dd.is-short {
+  color: #f0b27a;
+}
+.vault-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid #b8c98b55;
+  border-radius: 4px 2px;
+  background: #0b2a22;
+}
+.vault-amount input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #fff4d6;
+  font: 700 20px var(--font-mono);
+}
+.vault-amount span {
+  font: 11px var(--font-mono);
+  color: #c1cbb6;
+}
+.vault-amount button {
+  padding: 6px 10px;
+  border: 1px solid #dec99299;
+  border-radius: 4px 2px;
+  background: transparent;
+  color: #e8d39b;
+  font: 800 11px var(--font-mono);
+  cursor: pointer;
+}
+.vault-dialog button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.vault-dialog input:focus-visible,
+.vault-dialog button:focus-visible {
+  outline: 2px solid #f7e6a6;
+  outline-offset: 2px;
+}

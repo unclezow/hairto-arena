@@ -1,10 +1,10 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { AccessKeyDoesNotExistError, Near, generateKey } from 'near-kit';
+import { AccessKeyDoesNotExistError, AccountDoesNotExistError, Near, NetworkError, generateKey } from 'near-kit';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { fallbackConfig } from './config';
 import { arenaCall, enableQuickPlay, PLAY_METHODS, QUICK_PLAY_ALLOWANCE, quickPlayStatus, readQuickPlayKey, removeQuickPlay } from './quick-play-key';
 
-const rpc = vi.hoisted(() => ({ accountExists: vi.fn(), getAccessKey: vi.fn(), call: vi.fn(), rpc: { getAccessKey: vi.fn() } }));
+const rpc = vi.hoisted(() => ({ accountExists: vi.fn(), getAccessKey: vi.fn(), call: vi.fn(), rpc: { getAccount: vi.fn(), getAccessKey: vi.fn() } }));
 vi.mock('near-kit', async (original) => {
   const actual = await original<typeof import('near-kit')>();
   return { ...actual, Near: vi.fn(function () { return rpc; }) };
@@ -28,6 +28,7 @@ beforeEach(() => {
   storage.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) });
   rpc.accountExists.mockResolvedValue(true);
+  rpc.rpc.getAccount.mockResolvedValue({ amount: '1000000000000000000000000', locked: '0', storage_usage: 0 });
   rpc.getAccessKey.mockResolvedValue(null);
   rpc.rpc.getAccessKey.mockResolvedValue(permission());
   rpc.call.mockResolvedValue({ hash: 'local-outcome' });
@@ -37,7 +38,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('quick-play key permissions and persistence', () => {
   it('does not ask an unfunded account to approve AddKey', async () => {
-    rpc.accountExists.mockResolvedValue(false);
+    rpc.rpc.getAccount.mockRejectedValue(new AccountDoesNotExistError(accountId));
     await expect(quickPlayStatus(config, accountId)).resolves.toEqual({ kind: 'missing', funded: false });
     await expect(enableQuickPlay(config, accountId, wallet)).rejects.toThrow('Fund your account');
     expect(send).not.toHaveBeenCalled();
@@ -45,6 +46,7 @@ describe('quick-play key permissions and persistence', () => {
   });
 
   it('creates and reuses a key per account and network', async () => {
+    rpc.rpc.getAccessKey.mockRejectedValueOnce(new AccessKeyDoesNotExistError(accountId, 'not-yet-added'));
     rpc.rpc.getAccessKey.mockRejectedValueOnce(new AccessKeyDoesNotExistError(accountId, 'not-yet-added'));
     await enableQuickPlay(config, accountId, wallet);
     const key = readQuickPlayKey(config.network, accountId);
@@ -87,6 +89,14 @@ describe('quick-play key permissions and persistence', () => {
     rpc.rpc.getAccessKey.mockRejectedValueOnce(new AccessKeyDoesNotExistError(accountId, publicKey));
     await expect(quickPlayStatus(config, accountId)).resolves.toMatchObject({ kind: 'missing' });
     rpc.rpc.getAccessKey.mockRejectedValueOnce(new Error('RPC unavailable'));
+    await expect(quickPlayStatus(config, accountId)).rejects.toThrow('RPC unavailable');
+  });
+
+  it('handles the modern missing-key cause without treating general network failures as missing keys', async () => {
+    store();
+    rpc.rpc.getAccessKey.mockRejectedValueOnce(new NetworkError('RPC error [UNKNOWN_ACCESS_KEY]: Server error'));
+    await expect(quickPlayStatus(config, accountId)).resolves.toMatchObject({ kind: 'missing', funded: true });
+    rpc.rpc.getAccount.mockRejectedValueOnce(new NetworkError('RPC unavailable'));
     await expect(quickPlayStatus(config, accountId)).rejects.toThrow('RPC unavailable');
   });
 

@@ -1,0 +1,338 @@
+/* Sits below Privy's own login modal, which must stay clickable on top of it. */
+.connect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: 16px;
+  background: #04160dc4;
+  backdrop-filter: blur(7px) saturate(0.7);
+}
+.connect-modal {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  min-width: 0;
+  padding: 22px 20px 20px;
+  border: 2px solid #c3b17a;
+  border-radius: 13px 4px;
+  background: linear-gradient(135deg, #31452c, #172f23);
+  box-shadow:
+    inset 0 0 0 3px #152a1d,
+    0 5px 0 #887744,
+    0 20px 80px #020d09b3;
+  color: #e7dfbd;
+}
+.connect-modal h2 {
+  margin: 0;
+  font: 800 24px var(--font-mono);
+  letter-spacing: 1.5px;
+  text-align: center;
+  color: #fff4d6;
+}
+.connect-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e3ca91;
+  border-radius: 7px 2px;
+  background: linear-gradient(#9a7653, #593f2c);
+  color: #ffedc2;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.connect-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 40px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  font: 700 11px var(--font-mono);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.connect-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  counter-increment: step;
+  color: #8fa088;
+}
+.connect-step-back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.connect-step-back:hover {
+  color: #fff4d6;
+  text-decoration: underline;
+}
+.connect-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #5f7352;
+  border-radius: 50%;
+  background: #0f2418;
+  font-size: 12px;
+}
+.connect-steps li::before {
+  transition:
+    background-color 0.4s,
+    border-color 0.4s,
+    transform 0.4s;
+}
+.connect-steps li + li::after {
+  order: -1;
+  content: '';
+  width: 24px;
+  height: 2px;
+  margin: 0 6px;
+  background: linear-gradient(#9fa86a, #9fa86a) left / 0% 100% no-repeat #3b5240;
+  transition: background-size 0.5s ease 0.1s;
+}
+.connect-steps li[aria-current='step'] {
+  color: #fff4d6;
+}
+.connect-steps li[aria-current='step']::before {
+  border-color: #e3ca91;
+  background: #5e7845;
+  color: #fff4d6;
+}
+.connect-steps li.is-done {
+  color: #c1cbb6;
+}
+.connect-steps li.is-done::before {
+  content: '✓';
+  border-color: #9fa86a;
+  background: #3d5a3a;
+}
+.connect-steps li.is-done + li::after,
+.connect-steps li[aria-current='step']::after {
+  background-size: 100% 100%;
+}
+.connect-steps li[aria-current='step']::before {
+  transform: scale(1.12);
+}
+.connect-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  transition:
+    grid-template-columns 0.55s cubic-bezier(0.65, 0, 0.25, 1),
+    column-gap 0.55s cubic-bezier(0.65, 0, 0.25, 1);
+}
+/* The unpicked column collapses, so the picked card glides to the center. */
+.connect-roles.is-picked {
+  column-gap: 0;
+  grid-template-columns: 0fr 1fr;
+}
+.connect-roles.is-picked:has(.connect-role[data-role='fighter']:not([data-hidden])) {
+  grid-template-columns: 1fr 0fr;
+}
+.connect-role {
+  min-width: 0;
+  width: 100%;
+  max-width: 240px;
+  margin-inline: auto;
+  transition:
+    opacity 0.3s,
+    filter 0.15s,
+    border-color 0.15s;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 10px 10px 12px;
+  border: 1px solid #dec99299;
+  border-radius: 6px 2px;
+  background: #12271ce6;
+  color: #d9e5c4;
+  font: 12px/1.4 var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+.connect-role[data-hidden] {
+  /* Padding and border would keep the collapsed column from reaching zero width. */
+  padding-inline: 0;
+  border-width: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.connect-role:disabled {
+  color: #d9e5c4;
+  cursor: default;
+}
+.connect-role:disabled:hover {
+  filter: none;
+  border-color: #dec99299;
+}
+.connect-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  animation: connect-rise 0.45s ease 0.35s both;
+}
+.connect-actions .connect-primary {
+  width: min(240px, 100%);
+}
+@keyframes connect-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connect-roles,
+  .connect-role,
+  .connect-steps li::before,
+  .connect-steps li::after {
+    transition: none;
+  }
+  .connect-actions {
+    animation: none;
+  }
+}
+.connect-role-hero {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid #ada5744d;
+  border-radius: 4px 2px;
+}
+.connect-role-hero svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.connect-role > strong {
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-align: center;
+  color: #fff4d6;
+}
+.connect-role-info {
+  display: grid;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid #ada5742e;
+}
+.connect-role-info small {
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: #8fa088;
+}
+.connect-role-info b {
+  color: #e8d39b;
+}
+.connect-role:hover,
+.connect-role:focus-visible {
+  border-color: #f7e6a6;
+  filter: brightness(1.15);
+}
+.connect-note {
+  margin: 0;
+  font: 12px/1.5 var(--font-mono);
+  color: #c1cbb6;
+}
+.connect-note-center {
+  text-align: center;
+}
+.connect-note-fine {
+  font-size: 10px;
+  text-align: center;
+  color: #9fae96;
+}
+.connect-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 3px;
+  background: #6b3a24;
+  font: 700 12px var(--font-mono);
+  color: #ffe2c4;
+}
+.connect-primary {
+  padding: 11px 14px;
+  border: 1px solid #dec99299;
+  border-radius: 4px 2px;
+  background: linear-gradient(135deg, #5e7845, #2f5a3a);
+  color: #fff4d6;
+  font: 800 13px var(--font-mono);
+  letter-spacing: 0.8px;
+  cursor: pointer;
+}
+.connect-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.connect-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e8d39b;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.connect-modal button:focus-visible {
+  outline: 2px solid #f7e6a6;
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .connect-modal {
+    padding-inline: 14px;
+  }
+  .connect-modal h2 {
+    font-size: 20px;
+  }
+  .connect-steps {
+    margin: 0 28px 0 0;
+    font-size: 9px;
+  }
+  .connect-steps li {
+    gap: 4px;
+  }
+  .connect-steps li::before {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  .connect-steps li + li::after {
+    width: 8px;
+    margin: 0 4px;
+  }
+  /* Two compact columns keep the slide-to-center animation the same on a phone. */
+  .connect-roles:not(.is-picked) {
+    gap: 8px;
+  }
+  .connect-role {
+    padding: 6px 6px 8px;
+    font-size: 11px;
+  }
+  .connect-role > strong {
+    font-size: 13px;
+  }
+}
+.connect-modal > .connect-link {
+  justify-self: center;
+  font-size: 12px;
+}
+.connect-quick-play {
+  display: grid;
+  gap: 14px;
+}
