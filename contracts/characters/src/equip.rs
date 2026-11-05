@@ -35,3 +35,20 @@ impl Characters {
             .to_string()
     }
 }
+
+impl Characters {
+    /// Resets the account to the default when it no longer holds its equipped character, and logs it.
+    pub(crate) fn apply_equip_fallback(&mut self, account_id: &AccountId) {
+        let Some(id) = self.equipped.get(account_id).copied() else {
+            return;
+        };
+        if self.balance(id, account_id) == 0 {
+            self.equipped.remove(account_id);
+            ShopEvent::CharacterEquipped {
+                account_id: account_id.clone(),
+                token_id: "0".to_string(),
+            }
+            .emit();
+        }
+    }
+}
