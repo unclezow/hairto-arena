@@ -3,7 +3,7 @@
 //! One contract holds the price ticks, the duel engine, damage configurations, seasons and season scores, so all
 //! of them share state synchronously. The only cross-contract call in this version is `vault.can_play`.
 
-use near_sdk::store::{IterableSet, LookupMap, Vector};
+use near_sdk::store::{IterableSet, LookupMap, LookupSet, Vector};
 use near_sdk::{env, near, require, AccountId, BorshStorageKey, PanicOnDefault, PublicKey};
 
 pub mod admin;
@@ -28,8 +28,9 @@ use params::{
     MIN_RING_SIZE,
 };
 use types::{
-    ActiveSlot, Asset, AssetId, Bot, BotLevel, DamageConfigId, Duel, DuelId, DuelParams, Durations,
-    Hash32, Position, Score, Season, SeasonId, Side, Tick, TickIndex,
+    ActiveSlot, Asset, AssetId, Bot, BotLevel, ClaimKind, DamageConfigId, Duel, DuelId, DuelParams,
+    Durations, Hash32, PendingPick, Position, Score, Season, SeasonId, SeasonResults, Side, Tick,
+    TickIndex,
 };
 
 #[near]
@@ -51,6 +52,14 @@ enum StorageKey {
     Nonces,
     Seasons,
     Scores,
+    // Appended by the season economy.
+    Keepers,
+    Picks,
+    PendingPicks,
+    BackerCounts,
+    Pots,
+    SeasonResults,
+    Claims,
 }
 
 #[near(contract_state)]
@@ -97,6 +106,19 @@ pub struct Arena {
     seasons: LookupMap<SeasonId, Season>,
     durations: Durations,
     scores: LookupMap<(SeasonId, AccountId), Score>,
+
+    // ---- season economy: picks, pot, results, claims ----
+    keepers: IterableSet<AccountId>,
+    claims_paused: bool,
+    token_id: Option<AccountId>,
+    pick_of: LookupMap<(SeasonId, AccountId), AccountId>,
+    /// At most one pending pick per Backer.
+    pending_picks: LookupMap<AccountId, PendingPick>,
+    backer_count: LookupMap<(SeasonId, AccountId), u32>,
+    pot_of: LookupMap<SeasonId, u128>,
+    total_pots: u128,
+    season_results: LookupMap<SeasonId, SeasonResults>,
+    claimed: LookupSet<(SeasonId, ClaimKind, AccountId)>,
 }
 
 #[near]
@@ -155,6 +177,16 @@ impl Arena {
                 claim_period_ms: DEFAULT_CLAIM_PERIOD_MS,
             },
             scores: LookupMap::new(StorageKey::Scores),
+            keepers: IterableSet::new(StorageKey::Keepers),
+            claims_paused: false,
+            token_id: None,
+            pick_of: LookupMap::new(StorageKey::Picks),
+            pending_picks: LookupMap::new(StorageKey::PendingPicks),
+            backer_count: LookupMap::new(StorageKey::BackerCounts),
+            pot_of: LookupMap::new(StorageKey::Pots),
+            total_pots: 0,
+            season_results: LookupMap::new(StorageKey::SeasonResults),
+            claimed: LookupSet::new(StorageKey::Claims),
         }
     }
 }
