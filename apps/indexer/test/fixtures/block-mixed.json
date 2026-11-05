@@ -1,0 +1,126 @@
+{
+  "block": {
+    "author": "node0",
+    "header": {
+      "height": 182001234,
+      "timestamp_nanosec": "1800000123456789012",
+      "hash": "BlockHash111"
+    }
+  },
+  "shards": [
+    {
+      "shard_id": 0,
+      "receipt_execution_outcomes": [
+        {
+          "execution_outcome": {
+            "id": "RForeign",
+            "outcome": {
+              "executor_id": "someone.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"duel_voided\",\"data\":{\"duel_id\":7}}"
+              ],
+              "status": {
+                "SuccessValue": ""
+              }
+            }
+          },
+          "tx_hash": "TxForeign"
+        },
+        {
+          "execution_outcome": {
+            "id": "RClose",
+            "outcome": {
+              "executor_id": "arena.hairto.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"position_closed\",\"data\":{\"duel_id\":7,\"side\":\"Fighter\",\"player\":\"fighter.testnet\",\"dir\":\"Long\",\"close_tick\":41,\"net_pnl_ppm\":2400,\"self_delta\":0,\"opponent_delta\":-1000,\"hp_fighter\":1000,\"hp_bot\":0,\"ko\":true}}",
+                "plain log line",
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"duel_finished\",\"data\":{\"duel_id\":7,\"winner\":\"fighter.testnet\",\"outcome\":\"Win\",\"ko\":true,\"hp_fighter\":1000,\"hp_bot\":0}}"
+              ],
+              "status": {
+                "SuccessValue": ""
+              }
+            }
+          },
+          "tx_hash": "TxClose"
+        },
+        {
+          "execution_outcome": {
+            "id": "RFailed",
+            "outcome": {
+              "executor_id": "arena.hairto.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"duel_voided\",\"data\":{\"duel_id\":8}}"
+              ],
+              "status": {
+                "Failure": {
+                  "ActionError": {
+                    "index": 0,
+                    "kind": {
+                      "FunctionCallError": {
+                        "ExecutionError": "Smart contract panicked: duel not over"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "tx_hash": "TxFailed"
+        }
+      ]
+    },
+    {
+      "shard_id": 1,
+      "receipt_execution_outcomes": [
+        {
+          "execution_outcome": {
+            "id": "RUsdc",
+            "outcome": {
+              "executor_id": "usdc.hairto.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"nep141\",\"version\":\"1.0.0\",\"event\":\"ft_transfer\",\"data\":[{\"old_owner_id\":\"a\",\"new_owner_id\":\"b\",\"amount\":\"1\"}]}"
+              ],
+              "status": {
+                "SuccessValue": ""
+              }
+            }
+          },
+          "tx_hash": "TxBuy"
+        },
+        {
+          "execution_outcome": {
+            "id": "RBuy",
+            "outcome": {
+              "executor_id": "characters.hairto.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"nep245\",\"version\":\"1.0.0\",\"event\":\"mt_mint\",\"data\":[{\"owner_id\":\"fighter.testnet\",\"token_ids\":[\"2\"],\"amounts\":[\"1\"]}]}",
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"character_purchased\",\"data\":{\"buyer\":\"fighter.testnet\",\"token_id\":\"2\",\"price\":\"5000000\"}}"
+              ],
+              "status": {
+                "SuccessValue": ""
+              }
+            }
+          },
+          "tx_hash": "TxBuy"
+        },
+        {
+          "execution_outcome": {
+            "id": "RVault",
+            "outcome": {
+              "executor_id": "vault.hairto.testnet",
+              "logs": [
+                "EVENT_JSON:{\"standard\":\"nep245\",\"version\":\"1.0.0\",\"event\":\"mt_mint\",\"data\":[{\"owner_id\":\"x\",\"token_ids\":[\"9\"],\"amounts\":[\"1\"]}]}",
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"2.0.0\",\"event\":\"vault_deposited\",\"data\":{\"account_id\":\"fighter.testnet\",\"pool\":\"Fighter\",\"amount\":\"10000000\",\"principal\":\"10000000\"}}",
+                "EVENT_JSON:{\"standard\":\"hairto\",\"version\":\"1.0.0\",\"event\":\"duel_rejected\",\"data\":{\"fighter\":\"fighter.testnet\",\"nonce\":3,\"reason\":\"vault said no\"}}"
+              ],
+              "status": {
+                "SuccessValue": ""
+              }
+            }
+          },
+          "tx_hash": null
+        }
+      ]
+    }
+  ]
+}

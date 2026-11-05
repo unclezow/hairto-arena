@@ -11,6 +11,8 @@ export type NearNetwork = 'testnet' | 'mainnet';
 export interface NearDeployment {
   network: NearNetwork;
   rpcUrl: string;
+  /** Block height of the arena deployment, where the indexer starts; null until deployed. */
+  startBlock: number | null;
   explorerUrl: string;
   contracts: {
     arena: AccountId;

@@ -2,6 +2,7 @@
   "network": "testnet",
   "rpcUrl": "https://test.rpc.fastnear.com",
   "explorerUrl": "https://testnet.nearblocks.io",
+  "startBlock": null,
   "contracts": {
     "arena": "arena.hairto.testnet",
     "vault": "vault.hairto.testnet",
