@@ -11,6 +11,7 @@ pub mod damage;
 pub mod duel;
 pub mod events;
 pub mod params;
+pub mod picks;
 pub mod score;
 pub mod season;
 pub mod ticks;
