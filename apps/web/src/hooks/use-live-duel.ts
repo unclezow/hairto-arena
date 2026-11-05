@@ -9,6 +9,7 @@ import {
 } from '@hairto-arena/shared';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { clockOffsetMs, toLocalSec } from '@/lib/chain-clock';
 import { viewClient } from '@/lib/near/client';
 import { useNearWallet } from '@/lib/near/context';
 import { getSocket } from '@/lib/socket';
@@ -108,6 +109,23 @@ export function useLiveDuel(
   const [quotes, setQuotes] = useState<ChartQuote[]>([]);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const seq = useRef(-1);
+  // Chain minus local clock, so the countdown and the round end line up with the arena's block times.
+  const [offsetMs, setOffsetMs] = useState(0);
+  useEffect(() => {
+    if (!duelId) return;
+    let cancelled = false;
+    const sentAt = Date.now();
+    void viewClient(config)
+      .rpc.getStatus()
+      .then((status) => {
+        const half = (Date.now() - sentAt) / 2;
+        if (!cancelled) setOffsetMs(clockOffsetMs(status.sync_info.latest_block_time, sentAt + half));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [config, duelId]);
   const onCloseRef = useRef(onClose);
   const haltedRef = useRef(halted);
   useEffect(() => {
@@ -308,23 +326,26 @@ export function useLiveDuel(
     };
   }, [assetId]);
 
-  const roundEnd = state.startTs === null ? null : state.startTs + DUEL.roundDurationMs / 1000;
+  // Chain times moved to the local clock.
+  const startTs = state.startTs === null ? null : toLocalSec(state.startTs, offsetMs);
+  const koTs = state.koTs === null ? null : toLocalSec(state.koTs, offsetMs);
+  const roundEnd = startTs === null ? null : startTs + DUEL.roundDurationMs / 1000;
   // A K.O. ends the round early on-chain; the reveal window starts there.
-  const endTs = roundEnd === null ? null : state.koTs !== null ? Math.min(state.koTs, roundEnd) : roundEnd;
+  const endTs = roundEnd === null ? null : koTs !== null ? Math.min(koTs, roundEnd) : roundEnd;
   const roundOver = endTs !== null && now >= endTs;
   useEffect(() => {
     haltedRef.current = halted || roundOver;
   }, [halted, roundOver]);
   const phase: DuelPhase =
-    state.status === null || state.startTs === null || endTs === null
+    state.status === null || startTs === null || endTs === null
       ? 'loading'
       : isTerminal(state.status)
         ? 'over'
-        : now < state.startTs
+        : now < startTs
           ? 'countdown'
           : now < endTs
             ? 'live'
             : 'reveal';
 
-  return { state, quotes, now, phase, endTs };
+  return { state: { ...state, startTs, koTs }, quotes, now, phase, endTs };
 }
