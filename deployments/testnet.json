@@ -1,0 +1,30 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://test.rpc.fastnear.com",
+  "explorerUrl": "https://testnet.nearblocks.io",
+  "contracts": {
+    "arena": "arena.hairto.testnet",
+    "vault": "vault.hairto.testnet",
+    "usdc": "usdc.hairto.testnet",
+    "characters": "characters.hairto.testnet"
+  },
+  "accounts": {
+    "owner": "hairto.testnet",
+    "operator": "ops.hairto.testnet",
+    "pusher": "pusher.hairto.testnet",
+    "keeper": "keeper.hairto.testnet",
+    "relayer": "relayer.hairto.testnet",
+    "treasury": "hairto.testnet",
+    "bots": {
+      "1": "rookie.bots.hairto.testnet",
+      "2": "trend.bots.hairto.testnet",
+      "3": "reversion.bots.hairto.testnet",
+      "4": "oracle.bots.hairto.testnet"
+    }
+  },
+  "publicKeys": {
+    "botService": null,
+    "pusherGasKey": null,
+    "botGasKeys": { "1": null, "2": null, "3": null, "4": null }
+  }
+}
