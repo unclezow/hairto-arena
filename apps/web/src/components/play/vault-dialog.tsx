@@ -3,7 +3,6 @@
 import { STABLE_DECIMALS, VAULTS } from '@hairto-arena/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { formatUnits, parseUnits } from '@/lib/amount';
-import { featureReady } from '@/lib/features';
 import { formatAmount } from '@/hooks/use-balances';
 import { FIGHTER_MINIMUM, useVault } from '@/hooks/use-vault';
 import './connect-modal.css';
@@ -14,7 +13,7 @@ export type VaultMode = 'deposit' | 'withdraw';
 const fmt = (v: bigint) => formatAmount(v, STABLE_DECIMALS);
 
 /**
- * Deposit into or withdraw from Vault A, opened by the buttons next to the lobby's USDC chip. Every transaction here
+ * Deposit into or withdraw from the Fighter pool, opened by the buttons next to the lobby's USDC chip. Every transaction here
  * is one the player asked for; BATTLE only opens it (with a notice) when the deposit is short.
  */
 export function VaultDialog({
@@ -52,16 +51,16 @@ export function VaultDialog({
   const remaining = mode === 'withdraw' && valid ? vault.principal - parsed! : null;
 
   /** Why the action cannot run yet, or null when it can. */
-  const problem = !featureReady('economy') ? 'Economy actions are not available yet.' : !valid
+  const problem = !valid
     ? 'Enter an amount.'
     : mode === 'deposit'
       ? parsed! > vault.wallet
         ? 'Not enough USDC in your wallet. Claim test USDC from the balance menu.'
         : vault.principal + parsed! < FIGHTER_MINIMUM
-          ? `Vault A needs at least ${VAULTS.fighter.minDepositUsd} USDC to play.`
+          ? `The Fighter pool needs at least ${VAULTS.fighter.minDepositUsd} USDC.`
           : null
       : parsed! > vault.principal
-        ? 'That is more than your Vault A deposit.'
+        ? 'That is more than your Fighter pool deposit.'
         : null;
 
   const submit = async () => {
@@ -117,7 +116,7 @@ export function VaultDialog({
             <dd>{fmt(vault.wallet)} USDC</dd>
           </div>
           <div>
-            <dt>Vault A deposit</dt>
+            <dt>Fighter pool deposit</dt>
             <dd className={vault.canPlay ? '' : 'is-short'}>{fmt(vault.principal)} USDC</dd>
           </div>
         </dl>
@@ -141,7 +140,7 @@ export function VaultDialog({
         </label>
         {remaining !== null && remaining < FIGHTER_MINIMUM && !problem && (
           <p className="connect-note">
-            You will have {fmt(remaining)} USDC left in Vault A. Below{' '}
+            You will have {fmt(remaining)} USDC left in the Fighter pool. Below{' '}
             {VAULTS.fighter.minDepositUsd} USDC you cannot duel until you deposit again.
           </p>
         )}

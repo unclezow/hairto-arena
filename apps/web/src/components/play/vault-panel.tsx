@@ -36,7 +36,7 @@ export function VaultPanel({ onClose }: { onClose: () => void }) {
   return (
     <div ref={panel} className="hub-vault-panel" role="dialog" aria-labelledby={titleId}>
       <h2 id={titleId} className="sr-only">
-        USDC and Vault A
+        USDC and the Fighter pool
       </h2>
       <dl className="hub-vault-rows">
         <div>
@@ -44,7 +44,7 @@ export function VaultPanel({ onClose }: { onClose: () => void }) {
           <dd>{fmt(assets.total)} USDC</dd>
         </div>
         <div>
-          <dt>Deposited (Vault A)</dt>
+          <dt>Deposited (Fighter pool)</dt>
           <dd className={vault.canPlay ? '' : 'is-short'}>{fmt(vault.principal)} USDC</dd>
         </div>
         <div>

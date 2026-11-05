@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { featureReady } from '@/lib/features';
 import { useVault } from '@/hooks/use-vault';
 
 export function FaucetButton({
@@ -31,7 +30,7 @@ export function FaucetButton({
       <button
         type="button"
         className="hub-faucet-button"
-        disabled={busy || coolingDown || (loggedIn && !featureReady('economy'))}
+        disabled={busy || coolingDown}
         aria-busy={busy}
         aria-label={
           coolingDown ? `Faucet ready in ${cooldown}` : 'Claim 1,000 test USDC from the faucet'
@@ -60,7 +59,7 @@ export function FaucetButton({
         {!busy && !coolingDown && <span>+1,000</span>}
       </button>
       <div className="hub-faucet-tooltip" role="status">
-        {!featureReady('economy') ? 'USDC faucet is not available yet.' : vault.error
+        {vault.error
           ? `Claim failed: ${vault.error}`
           : claimed
             ? '1,000 USDC claimed!'
