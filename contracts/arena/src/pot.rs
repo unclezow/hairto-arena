@@ -87,4 +87,12 @@ impl Arena {
         self.total_pots += amount;
         pot
     }
+
+    /// Removes from a season's pot and the total.
+    pub(crate) fn debit_pot(&mut self, season: SeasonId, amount: u128) {
+        let pot = self.pot_amount(season);
+        require!(pot >= amount, "pot too small");
+        self.pot_of.insert(season, pot - amount);
+        self.total_pots -= amount;
+    }
 }

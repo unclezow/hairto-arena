@@ -35,6 +35,16 @@ pub const GAS_FOR_ON_PICK: Gas = Gas::from_tgas(20);
 /// Minimum prepaid gas for `pick`.
 pub const MIN_GAS_FOR_PICK: Gas = Gas::from_tgas(50);
 
+// ---- Season results and claims ----
+pub const BPS: u128 = 10_000;
+/// Fighter prizes may use at most 75% of the pot, Backer bonuses at most 25%.
+pub const PRIZE_CAP_BPS: u128 = 7_500;
+pub const BONUS_CAP_BPS: u128 = 2_500;
+pub const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(10);
+pub const GAS_FOR_ON_CLAIM: Gas = Gas::from_tgas(10);
+/// Minimum prepaid gas for `claim_prize` and `claim_bonus`.
+pub const MIN_GAS_FOR_CLAIM: Gas = Gas::from_tgas(30);
+
 // ---- Damage. PnL unit is ppm: 1 ppm = 0.01 bps ----
 pub const PPM: i128 = 1_000_000;
 pub const PPM_PER_BPS: i64 = 100;
