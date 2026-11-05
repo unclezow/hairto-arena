@@ -1,6 +1,7 @@
 'use client';
 import { STABLE_DECIMALS } from '@hairto-arena/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { formatAmount } from '@/hooks/use-balances';
 import { useWalletSession } from '@/hooks/use-wallet-session';
 import { api, ApiError } from '@/lib/api';
@@ -34,6 +35,13 @@ export function ClaimList() {
   const { config, accountId, wallet } = useNearWallet();
   const queries = useQueryClient();
   const tx = useTx();
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const timer = setInterval(tick, 15_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const rows = useQuery({
     queryKey: ['claims', address, token],
@@ -104,7 +112,6 @@ export function ClaimList() {
         Nothing to claim yet. Results appear after a season is closed and the keeper has posted them.
       </p>
     );
-  const now = Date.now();
 
   return (
     <div className="space-y-2">

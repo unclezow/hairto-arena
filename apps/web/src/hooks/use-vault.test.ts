@@ -15,3 +15,19 @@ describe('deposit rejection text', () => {
     expect(rejectionText('something', 'Fighter')).toContain('refused the deposit');
   });
 });
+
+import { depositCalls } from './use-vault';
+
+describe('deposit transactions', () => {
+  const config = { contracts: { vault: 'vault.testnet', usdc: 'usdc.testnet' } };
+  it('registers first for a new account, then transfers with the pool', () => {
+    const calls = depositCalls(config, false, 10_000_000n, 'Fighter');
+    expect(calls.map((c) => `${c.receiverId}:${c.method}`)).toEqual(['vault.testnet:storage_deposit', 'usdc.testnet:ft_transfer_call']);
+    expect(calls[0]!.deposit).toBe('10000000000000000000000');
+    expect(calls[1]!.args).toEqual({ receiver_id: 'vault.testnet', amount: '10000000', msg: '{"pool":"Fighter"}' });
+    expect(calls[1]!.deposit).toBe('1');
+  });
+  it('skips registration for a registered account', () => {
+    expect(depositCalls(config, true, 1n, 'Backer').map((c) => c.method)).toEqual(['ft_transfer_call']);
+  });
+});

@@ -38,9 +38,12 @@ export function BackerPanel() {
   const vault = useVault('Backer');
   const tx = useTx();
   const [amount, setAmount] = useState(String(VAULTS.backer.minDepositUsd));
-  const [now, setNow] = useState(() => Date.now());
+  // 0 until mounted, so the page prerenders without reading the clock.
+  const [now, setNow] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const tick = () => setNow(Date.now());
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, []);
 
