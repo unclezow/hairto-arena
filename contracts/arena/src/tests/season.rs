@@ -1,7 +1,7 @@
 //! `season-lifecycle` scenarios.
 
 use super::*;
-use crate::types::Phase;
+use crate::types::{Phase, SeasonId};
 
 const MIN: u64 = 60_000;
 const HOUR: u64 = 60 * MIN;
@@ -175,4 +175,64 @@ fn bounded_durations() {
         .set_durations(10 * MIN, 10 * MIN, MIN, MIN, MIN);
     w.call(&operator())
         .set_durations(90 * day, 0, 7 * day, day, 365 * day);
+}
+
+fn post_fake_results(w: &mut World, season: SeasonId, claim_opens_ms: u64) {
+    w.arena.seasons.get_mut(&season).unwrap().phase = Phase::ResultsPosted;
+    w.arena.season_results.insert(
+        season,
+        crate::types::SeasonResults {
+            prize_root: [1; 32],
+            bonus_root: [0; 32],
+            prize_total: 10,
+            bonus_total: 0,
+            prize_claimed: 0,
+            bonus_claimed: 0,
+            pot_at_post: 100,
+            results_posted_ms: claim_opens_ms - HOUR,
+            claim_opens_ms,
+            rolled_over: false,
+        },
+    );
+}
+
+#[test]
+fn finalized_is_computed_from_the_dispute_window() {
+    let mut w = World::new();
+    w.advance(T0 + 7 * 24 * HOUR + 15 * MIN);
+    w.call(&stranger()).close_season();
+    let opens = w.now + HOUR;
+    post_fake_results(&mut w, 1, opens);
+    let s = w.call(&stranger()).get_season(1).unwrap();
+    assert_eq!(s.phase, Phase::ResultsPosted);
+    let r = s.results.unwrap();
+    assert_eq!(
+        (r.prize_total.0, r.claim_opens_ms, r.rolled_over),
+        (10, opens, false)
+    );
+    assert_eq!(r.bonus_root.0, vec![0u8; 32]);
+    w.advance(opens - 1);
+    assert_eq!(
+        w.call(&stranger()).get_season(1).unwrap().phase,
+        Phase::ResultsPosted
+    );
+    w.advance(opens);
+    assert_eq!(
+        w.call(&stranger()).get_season(1).unwrap().phase,
+        Phase::Finalized
+    );
+    // A new season can start once the previous one is past Active.
+    assert_eq!(w.call(&operator()).start_season(vec![1]), 2);
+    let s2 = w.arena.get_season(2).unwrap();
+    assert_eq!((s2.pot.0, s2.results), (0, None));
+}
+
+#[test]
+fn new_season_after_results_posted() {
+    let mut w = World::new();
+    w.advance(T0 + 7 * 24 * HOUR + 15 * MIN);
+    w.call(&stranger()).close_season();
+    let opens = w.now + HOUR;
+    post_fake_results(&mut w, 1, opens);
+    assert_eq!(w.call(&operator()).start_season(vec![1]), 2);
 }

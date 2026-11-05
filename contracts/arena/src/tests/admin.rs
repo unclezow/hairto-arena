@@ -475,3 +475,36 @@ fn read_views_need_no_role() {
     assert_eq!(arena.get_bots().len(), 3);
     assert_eq!(arena.vault_id(), vault());
 }
+
+#[test]
+fn keeper_role() {
+    let mut w = World::new();
+    let keeper = acc("keeper.test.near");
+    assert!(fails(|| w
+        .call(&stranger())
+        .grant_role(Role::Keeper, keeper.clone())));
+    w.call(&owner()).grant_role(Role::Keeper, keeper.clone());
+    let e = find_event("role_changed").unwrap();
+    assert_eq!(e["data"]["role"], "Keeper");
+    assert!(w.arena.has_role(Role::Keeper, keeper.clone()));
+    assert_eq!(w.arena.get_roles().keepers, vec![keeper.clone()]);
+    w.call(&owner()).revoke_role(Role::Keeper, keeper.clone());
+    assert!(!w.arena.has_role(Role::Keeper, keeper));
+}
+
+#[test]
+fn claims_pause_is_separate_from_duel_pause() {
+    let mut w = World::new();
+    assert!(fails(|| w.call(&owner()).pause_claims()));
+    w.call(&guardian()).pause_claims();
+    assert_eq!(event_names(), vec!["claims_paused"]);
+    let c = w.arena.get_config();
+    assert!(c.claims_paused && !c.paused);
+    // Duels still start while claims are paused.
+    assert!(w.start_with(1, Ok(true)).is_some());
+    w.call(&guardian()).unpause_claims();
+    assert_eq!(event_names(), vec!["claims_unpaused"]);
+    assert!(!w.arena.get_config().claims_paused);
+    assert_eq!(w.arena.get_config().token_id, None);
+    assert_eq!(w.arena.get_config().total_pots.0, 0);
+}
