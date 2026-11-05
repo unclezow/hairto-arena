@@ -1,0 +1,106 @@
+{
+  "description": "PnlDifference parity cases. PnL in ppm, as the arena emits it in position_closed and position_penalized. HP follows DamageConfig::PnlDifference in contracts/arena/src/damage.rs.",
+  "options": {
+    "startingHp": 1000,
+    "ppmPerHp": 10,
+    "paperCostPpm": 0,
+    "unrevealedBasePenaltyPpm": 100
+  },
+  "cases": [
+    {
+      "name": "no trades is a draw",
+      "trades": [],
+      "expected": {
+        "hpFighter": 1000,
+        "hpBot": 1000,
+        "winner": "draw"
+      }
+    },
+    {
+      "name": "fighter +300 and bot -300 both hit the bot",
+      "trades": [
+        {
+          "side": "fighter",
+          "pnlPpm": 300
+        },
+        {
+          "side": "bot",
+          "pnlPpm": -300
+        }
+      ],
+      "expected": {
+        "hpFighter": 1000,
+        "hpBot": 940,
+        "winner": "fighter"
+      }
+    },
+    {
+      "name": "unrevealed bot penalty -(200 + 100)",
+      "trades": [
+        {
+          "side": "fighter",
+          "pnlPpm": 200
+        },
+        {
+          "side": "bot",
+          "pnlPpm": -300
+        }
+      ],
+      "expected": {
+        "hpFighter": 1000,
+        "hpBot": 950,
+        "winner": "fighter"
+      }
+    },
+    {
+      "name": "fighter loss hurts the fighter",
+      "trades": [
+        {
+          "side": "fighter",
+          "pnlPpm": -200
+        }
+      ],
+      "expected": {
+        "hpFighter": 980,
+        "hpBot": 1000,
+        "winner": "bot"
+      }
+    },
+    {
+      "name": "both profit, the bigger net PnL wins",
+      "trades": [
+        {
+          "side": "fighter",
+          "pnlPpm": 500
+        },
+        {
+          "side": "bot",
+          "pnlPpm": 200
+        }
+      ],
+      "expected": {
+        "hpFighter": 980,
+        "hpBot": 950,
+        "winner": "fighter"
+      }
+    },
+    {
+      "name": "flat trades on both sides are a draw",
+      "trades": [
+        {
+          "side": "fighter",
+          "pnlPpm": 0
+        },
+        {
+          "side": "bot",
+          "pnlPpm": 0
+        }
+      ],
+      "expected": {
+        "hpFighter": 1000,
+        "hpBot": 1000,
+        "winner": "draw"
+      }
+    }
+  ]
+}
