@@ -3,9 +3,11 @@
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useState } from 'react';
-import { featureReady } from '@/lib/features';
 import { CHARACTERS } from '@hairto-arena/shared';
-import { useCharacterCatalog } from '@/hooks/use-lobby-data';
+import { useCharacterCatalog, useCharacterStore, useOwnedCharacters } from '@/hooks/use-lobby-data';
+import { useBalances } from '@/hooks/use-balances';
+import { cardState } from '@/lib/near/characters';
+import { formatAmount } from '@/lib/amount';
 import { CharacterPortrait } from './character-portrait';
 
 const Fighter = dynamic(() => import('./lobby-fighter'), {
@@ -36,6 +38,11 @@ const PRESENTATION: Record<number, { title: string; detail: string; emblem: stri
 export default function CharacterCollection() {
   const [previewId, setPreviewId] = useState<number | null>(null);
   const catalog = useCharacterCatalog();
+  const store = useCharacterStore();
+  const owned = useOwnedCharacters();
+  const balances = useBalances();
+  const [buying, setBuying] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
   // Shared metadata keeps all five previews visible while the shop catalog loads.
   const roster = CHARACTERS.filter(
     (fighter) => fighter.modelAvailable && PRESENTATION[fighter.id],
@@ -94,18 +101,59 @@ export default function CharacterCollection() {
                 <strong>{look.title}</strong>
                 <span>{look.detail}</span>
               </span>
-              <button
-                type="button"
-                className="armory-card-price"
-                disabled={!featureReady('economy')}
-                title="Purchases are not available yet"
-                aria-label={`Buy ${look.title} for 500 USDC. Demo button.`}
-              >
-                <span className="armory-buy-label">BUY</span>
-                <Image src="/play/currencies/usdc-coin-v1.png" alt="USDC" width={28} height={28} />
-                <strong>500</strong>
-                <small>USDC</small>
-              </button>
+              {(() => {
+                const chain = store.byId(fighter.id);
+                const state =
+                  fighter.id === 0
+                    ? owned.equipped === 0
+                      ? 'equipped'
+                      : 'owned'
+                    : cardState(chain, owned.owns(fighter.id), owned.equipped === fighter.id);
+                const price = chain ? BigInt(chain.price) : null;
+                const short = price !== null && balances.usdc < price;
+                const label =
+                  state === 'equipped'
+                    ? 'EQUIPPED'
+                    : state === 'owned'
+                      ? 'OWNED'
+                      : state === 'sold_out'
+                        ? 'SOLD OUT'
+                        : state === 'unavailable'
+                          ? 'UNAVAILABLE'
+                          : buying === fighter.id
+                            ? 'BUYING…'
+                            : 'BUY';
+                return (
+                  <button
+                    type="button"
+                    className="armory-card-price"
+                    disabled={state !== 'for_sale' || short || buying !== null}
+                    title={notice?.id === fighter.id ? notice.text : short ? 'Get USDC first' : undefined}
+                    aria-label={
+                      state === 'for_sale' && price !== null
+                        ? `Buy ${look.title} for ${formatAmount(price, 6)} USDC`
+                        : `${look.title}: ${label.toLowerCase()}`
+                    }
+                    onClick={async () => {
+                      setBuying(fighter.id);
+                      setNotice(null);
+                      try {
+                        const problem = await store.buy(fighter.id);
+                        setNotice({ id: fighter.id, text: problem ?? 'Purchased!' });
+                      } catch (error) {
+                        setNotice({ id: fighter.id, text: (error as Error).message.split('\n')[0]! });
+                      } finally {
+                        setBuying(null);
+                      }
+                    }}
+                  >
+                    <span className="armory-buy-label">{label}</span>
+                    <Image src="/play/currencies/usdc-coin-v1.png" alt="USDC" width={28} height={28} />
+                    <strong>{price === null ? '—' : formatAmount(price, 6)}</strong>
+                    <small>USDC</small>
+                  </button>
+                );
+              })()}
               <button
                 type="button"
                 className="armory-card-action"
