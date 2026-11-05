@@ -2,14 +2,23 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import type { MarketView } from '@hairto-arena/shared';
 import {
   Component,
   useCallback,
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { api } from '@/lib/api';
+import { useDuelTrading } from '@/hooks/use-duel-trading';
+import { useLiveDuel } from '@/hooks/use-live-duel';
+import { DEFAULT_BOT_LEVEL, defaultMarket, useStartDuel } from '@/hooks/use-start-duel';
+import { markResultFromArena } from '@/lib/duel-storage';
+import { startErrorText } from '@/lib/start-errors';
 import { BattleDialog } from '../play/battle-dialog';
 import { useSelectedFighter } from '../play/mock-fighters';
 import { ArenaIcon } from './arena-icons';
@@ -17,6 +26,7 @@ import { ArenaBackButton } from './arena-back-button';
 import { CombatLab } from './combat-lab';
 import {
   ATTACKS,
+  attackKindFor,
   type AttackKind,
   type AttackRequest,
   type FighterSide,
@@ -27,8 +37,7 @@ import { FighterHud } from './fighter-hud';
 import { ArenaLeaveGuard } from './arena-leave-guard';
 import { ArenaCountdown } from './arena-countdown';
 import { ArenaSettling } from './arena-settling';
-import type { ArenaOutcome } from './arena-outcome';
-import { featureReady } from '@/lib/features';
+import { arenaOutcome } from './arena-outcome';
 import { ArenaOutro } from './arena-outro';
 import { OnchainLog } from './onchain-log';
 import { useArenaAudio } from './use-arena-audio';
@@ -55,6 +64,7 @@ function subscribeMotion(callback: () => void) {
 /** HP changes one closed position applies, by side, for the animation that shows it. */
 type LiveHit = { attacker: FighterSide; kind: AttackKind; left: number; right: number };
 
+const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
 
 class SceneBoundary extends Component<
   { children: ReactNode; onFailure: () => void },
@@ -165,22 +175,179 @@ export function ArenaPreview() {
     },
     [audio],
   );
-  // near-web-duel replaces this fence with the NEAR ticket, event and transaction flow.
+  // ---- live duel (`/arena?duel=<id>`); without it the arena stays the preview ---------------------------
   const router = useRouter();
   const search = useSearchParams();
-  const [duelId] = useState<string | null>(null);
-  const [livePanel] = useState<LivePanel | undefined>(undefined);
-  const [outcome] = useState<ArenaOutcome | null>(null);
+  const duelId = search.get('duel');
+  // From the lobby's BATTLE: the duel does not exist yet. It is created below once the scene is ready.
+  const starting = search.get('start') === '1' && !duelId;
+  const { start: startDuel } = useStartDuel();
+  // Arrived from the lobby's BATTLE: the intro countdown runs on its own while the duel is created behind it.
+  const [fromLobby] = useState(() => search.get('start') === '1');
+  const [startError, setStartError] = useState<{ title: string; hint: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const startedAttempt = useRef(-1);
   const liveHits = useRef(new Map<number, LiveHit>());
-  const live = { phase: 'loading', state: { startTs: null as number | null } };
-  const starting = false;
-  const fromLobby = false;
-  const inDuel = false;
-  const knockedOut = false;
-  const stopped = false;
-  const startError = (search.get('duel') || search.get('start')) && !featureReady('duel')
-    ? { title: 'DUELS NOT AVAILABLE YET', hint: 'Live arena play will be enabled in the duel update. The scene remains a local preview.' }
-    : null;
+  const queue = useRef<LiveHit[]>([]);
+  const [queued, setQueued] = useState(0);
+  const knockedOut = !!duelId && (hp.left <= 0 || hp.right <= 0);
+  const live = useLiveDuel(
+    duelId,
+    (position) => {
+      const self: FighterSide = position.isBot ? 'right' : 'left';
+      const other: FighterSide = self === 'left' ? 'right' : 'left';
+      const selfDelta = position.selfDelta ?? 0;
+      const opponentDelta = position.opponentDelta ?? 0;
+      const damage = Math.max(-opponentDelta, -selfDelta, 0);
+      if (damage === 0) return;
+      queue.current.push({
+        attacker: opponentDelta < 0 ? self : other,
+        kind: attackKindFor(damage),
+        [self]: selfDelta,
+        [other]: opponentDelta,
+      } as LiveHit);
+      setQueued((n) => n + 1);
+    },
+    knockedOut,
+  );
+  const trading = useDuelTrading(duelId, live);
+  const outcome =
+    duelId && live.phase === 'over' && !attack && queued === 0
+      ? arenaOutcome(live.state.status, live.state.fighter, live.state.winner)
+      : null;
+  useEffect(() => {
+    if (!starting || !ready || startedAttempt.current === attempt) return;
+    // One request per attempt, even if this effect runs again (strict mode, changing search params).
+    startedAttempt.current = attempt;
+    void (async () => {
+      // The seed ticket is requested only now that the scene is ready, so the round never starts while assets load.
+      const assetId =
+        Number(search.get('asset')) || (await defaultMarket().catch(() => null))?.assetId;
+      if (!assetId) {
+        setStartError({
+          title: 'NO MARKET OPEN',
+          hint: 'Every market is closed right now. Try again later.',
+        });
+        return;
+      }
+      const started = await startDuel({
+        assetId,
+        botLevel: Number(search.get('bot')) || DEFAULT_BOT_LEVEL,
+      });
+      if (started.ok) router.replace(`/arena?duel=${started.duelId}`);
+      else setStartError({ title: 'COULD NOT START', hint: startErrorText(started.code) });
+    })();
+  }, [starting, ready, attempt, search, startDuel, router]);
+  const markets = useQuery({
+    queryKey: ['markets'],
+    queryFn: () => api<{ items: MarketView[] }>('/markets'),
+    enabled: !!duelId,
+  });
+  useEffect(() => {
+    if (!duelId) return;
+    if (attack) return;
+    const next = queue.current[0];
+    if (next && ready && entered && !reducedMotion) {
+      queue.current.shift();
+      setQueued((count) => count - 1);
+      locked.current = true;
+      setPaused(false);
+      setHit(null);
+      setStage('charging');
+      const request = { id: ++attackCounter.current, kind: next.kind, attacker: next.attacker };
+      liveHits.current.set(request.id, next);
+      activeAudioAttack.current = request;
+      audio.charge(request);
+      setAttack(request);
+      return;
+    }
+    // Nothing left to animate (or no motion): show exactly what the contract says.
+    queue.current = [];
+    setQueued(0);
+    setHp({ left: live.state.hp.fighter, right: live.state.hp.bot });
+  }, [duelId, attack, queued, ready, entered, reducedMotion, audio, live.state.hp]);
+  useEffect(() => {
+    if (!duelId || !outcome) return;
+    audio.outcome(outcome);
+    const timer = setTimeout(
+      () => {
+        markResultFromArena(String(duelId));
+        router.push(`/duel/${duelId}/result`);
+      },
+      reducedMotion ? 1500 : 4000,
+    );
+    return () => clearTimeout(timer);
+  }, [duelId, outcome, reducedMotion, audio, router]);
+  // A fighter out of HP ends the game for the player at once, even though the chain settles at the round's end.
+  const stopped = !!duelId && (knockedOut || live.phase === 'reveal' || live.phase === 'over');
+  const quotes = live.quotes;
+  const quotePrices = quotes.map((q) => Number(q.price));
+  const lastQuote = quotes.at(-1);
+  const entryQuote =
+    trading.openedAt === null
+      ? undefined
+      : (quotes.findLast((q) => q.publishTime <= trading.openedAt! / 1000) ?? lastQuote);
+  const lastClosed = live.state.positions.findLast((p) => !p.isBot && p.state === 'closed');
+  const entry = entryQuote ? Number(entryQuote.price) : undefined;
+  const current = lastQuote ? Number(lastQuote.price) : null;
+  // Once a duel exists the player cannot walk out of it; the exit comes back when it is over.
+  const inDuel = !!duelId && live.phase !== 'over';
+  const livePanel: LivePanel | undefined = duelId
+    ? {
+        price: current,
+        series: quotePrices,
+        symbol: markets.data?.items.find((m) => m.assetId === live.state.assetId)?.symbol ?? '—',
+        feed: 'PYTH FEED',
+        timeLabel: lastQuote ? clock(lastQuote.publishTime) : '--:--:--',
+        side: trading.side,
+        entry,
+        assetId: live.state.assetId ?? 0,
+        pnlBps:
+          trading.side && entry && current
+            ? ((current - entry) / entry) * 10_000 * (trading.side === 'long' ? 1 : -1)
+            : lastClosed?.pnlPpm !== undefined
+              ? lastClosed.pnlPpm / 100
+              : null,
+        tradesLeft: trading.tradesLeft,
+        secondsLeft:
+          live.phase === 'live' && live.endTs !== null
+            ? Math.max(0, Math.ceil(live.endTs - live.now))
+            : live.phase === 'countdown' || live.phase === 'loading'
+              ? 30
+              : 0,
+        holdLeft: trading.holdLeft,
+        canOpen: trading.canOpen && !knockedOut,
+        canClose: trading.canClose && !knockedOut,
+        onSide: knockedOut ? () => undefined : trading.chooseSide,
+        status:
+          trading.status ??
+          (live.phase === 'loading'
+            ? 'CONNECTING…'
+            : live.phase === 'countdown' && live.state.startTs !== null
+              ? `STARTS IN ${Math.max(0, Math.ceil(live.state.startTs - live.now))}s`
+              : live.phase === 'reveal'
+                ? 'ROUND OVER'
+                : live.phase === 'over'
+                  ? live.state.status === 'voided'
+                    ? 'DUEL VOIDED'
+                    : 'DUEL FINISHED'
+                  : trading.tradesLeft === 0 && !trading.side
+                    ? 'NO TRADES LEFT'
+                    : null),
+        message:
+          trading.status ??
+          trading.error ??
+          (live.phase === 'countdown'
+            ? 'Round starts soon'
+            : live.phase === 'reveal'
+              ? 'Round over, revealing positions'
+              : live.phase === 'over'
+                ? live.state.status === 'voided'
+                  ? 'Duel voided'
+                  : 'Duel finished'
+                : ''),
+      }
+    : undefined;
 
   const onReset = useCallback(() => {
     if (!locked.current) {
@@ -272,7 +439,10 @@ export function ArenaPreview() {
           flow={{ kind: 'error', ...startError }}
           step="idle"
           onClose={() => router.push('/play/lobby')}
-          onRetry={() => router.push('/play/lobby')}
+          onRetry={() => {
+            setStartError(null);
+            setAttempt((n) => n + 1);
+          }}
         />
       )}
       {duelId && entered && stopped && live.phase !== 'over' && (

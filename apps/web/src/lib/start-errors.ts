@@ -7,9 +7,12 @@ const START_ERRORS: Record<string, string> = {
   BOT_UNAVAILABLE: 'The bot is resting. Try again.',
   NO_ACTIVE_SEASON: 'No season is open right now.',
   SEASON_NOT_OPEN: 'No season is open right now.',
-  SIGN_DECLINED: 'You declined the signature. Try again when you are ready.',
-  INTENT_EXPIRED: 'The signed request expired. Try again.',
-  BELOW_MINIMUM_DEPOSIT: 'Deposit at least 10 USDC into Vault A to play.',
+  SIGN_DECLINED: 'You declined the transaction. Try again when you are ready.',
+  BELOW_MINIMUM_DEPOSIT: 'Deposit at least 10 USDC to play.',
+  NOT_ELIGIBLE: 'Deposit at least 10 USDC to play.',
+  VAULT_ERROR: 'The vault did not answer. Try again.',
+  DUEL_REJECTED: 'The arena refused the duel. Try again.',
+  UNAUTHENTICATED: 'Sign in again to start a duel.',
 };
 
 export const startErrorText = (code: string) =>
