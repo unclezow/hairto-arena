@@ -1,6 +1,6 @@
 /**
  * A duel event of the arena (NEP-297 `hairto` standard) with where it happened. The live event source arrives
- * with the indexer; until then only indexed rows produce steps.
+ * with the indexer; until then only indexed rows produce steps. Seeds are base64.
  */
 export type ChainDuelEvent = {
   /** Base58 hash of the transaction the receipt belongs to. */
@@ -27,10 +27,10 @@ export type ChainDuelEvent = {
       selfDelta: number;
       opponentDelta: number;
     }
-  | { kind: 'finished' }
-  | { kind: 'forfeited' }
+  | { kind: 'finished'; winner: string | null; ko: boolean }
+  | { kind: 'forfeited'; loser: string }
   | { kind: 'voided' }
-  | { kind: 'seedRevealed' }
+  | { kind: 'seedRevealed'; seed: string }
 );
 
 /** One on-chain step of a duel as the UI shows it. Both the live watcher and the indexer produce it. */
