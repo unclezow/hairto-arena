@@ -1,21 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useLogin, useLogout } from '@/hooks/use-login';
 import { useWalletSession } from '@/hooks/use-wallet-session';
 import { useBalances } from '@/hooks/use-balances';
-import { featureReady } from '@/lib/features';
 export { shortAddress } from '@/hooks/use-lobby-data';
 
 export function revertText(error: unknown) { return error instanceof Error ? error.message.split('\n')[0]! : 'Transaction failed'; }
-/** near-web-economy replaces this transaction fence. It never reports a simulated success. */
+/**
+ * Runs one player action and keeps its message. `action` returns an error text when the contracts refused it
+ * (read from their events), or null on success; a thrown error is shown as its first line.
+ */
 export function useTx() {
+  const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  return {
-    busy: null as string | null,
-    message,
-    run: async (label: string) => { void featureReady('economy'); setMessage({ ok: false, text: `${label}: Economy actions are not available yet.` }); return false; },
-  };
+  const run = useCallback(async (label: string, action: () => Promise<string | null>) => {
+    setBusy(label);
+    setMessage(null);
+    try {
+      const problem = await action();
+      setMessage(problem ? { ok: false, text: `${label}: ${problem}` } : { ok: true, text: `${label}: done` });
+      return !problem;
+    } catch (error) {
+      setMessage({ ok: false, text: `${label}: ${revertText(error)}` });
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+  return { busy, message, run };
 }
 export function WalletBar() {
   const { accountId, isConnected, token, status, error, signIn } = useWalletSession();
