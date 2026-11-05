@@ -18,6 +18,7 @@ export function Nav() {
   const links = isLanding ? [{ href: '/play', label: 'Play' }] : LINKS;
   if (
     isLanding ||
+    pathname === '/sign' ||
     pathname === '/arena' ||
     pathname === '/lobby' ||
     pathname === '/play' ||
