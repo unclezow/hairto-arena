@@ -141,3 +141,18 @@ test('quick play can be enabled and removed through the mocked wallet', async ({
   await page.getByRole('button', { name: 'Remove quick play', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Enable quick play', exact: true })).toBeVisible();
 });
+
+test('a new Backer can change role selection and enter the fenced Backer page', async ({ page }) => {
+  await mockWalletAndApi(page);
+  await page.goto('/play/lobby?connect=1');
+  await connect(page);
+  await page.getByRole('button', { name: /FIGHTER.*DEPOSIT/ }).click();
+  await page.getByRole('button', { name: 'Change role', exact: true }).click();
+  await page.getByRole('button', { name: /BACKER.*DEPOSIT/ }).click();
+  await page.getByRole('button', { name: 'CONTINUE', exact: true }).click();
+  await page.getByRole('button', { name: 'Not now', exact: true }).click();
+  await expect(page).toHaveURL(/\/play\/backer$/);
+  await expect(page.getByRole('heading', { name: 'Backer', exact: true })).toBeVisible();
+  await expect(page.getByText('Backer actions are not available yet.')).toBeVisible();
+  await expect(page.getByText('0.1 NEAR (gas) · 1,000 USDC (mock)', { exact: true })).toBeVisible();
+});
