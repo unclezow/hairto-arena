@@ -8,6 +8,7 @@
     "dev": "tsc -p tsconfig.build.json && node --env-file-if-exists=.env dist/main.js",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
     "schema": "tsc -p tsconfig.build.json && node dist/schema-cli.js"
   },
@@ -20,6 +21,8 @@
     "@hairto-arena/config": "workspace:*",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
+    "oxlint": "^1.58.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12"
   }
