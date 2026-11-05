@@ -1,4 +1,4 @@
-name: hairto-arena
+name: hairto-arena-near
 
 services:
   postgres:
