@@ -29,6 +29,30 @@ services:
       timeout: 5s
       retries: 10
 
+  # The NEAR indexer: final blocks from Neardata into schema `chain`. Opt-in (`--profile indexer`); build it on the
+  # host first with `pnpm --filter @hairto-arena/shared build && pnpm --filter @hairto-arena/indexer build`.
+  # Settings come from apps/indexer/.env (see apps/indexer/.env.example); only the service addresses are set here.
+  indexer:
+    profiles: ['indexer']
+    image: node:24-alpine
+    working_dir: /repo/apps/indexer
+    command: ['node', 'dist/main.js']
+    volumes:
+      - .:/repo:ro
+    env_file:
+      - path: apps/indexer/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://hairto:hairto@postgres:5432/hairto
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # It resumes from its cursor after any crash or restart; a short outage is caught up by gap-fill.
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
