@@ -76,7 +76,9 @@ export function commitHash(
 
 /** `sha256(borsh((seed: [u8; 32], fighter: String, nonce: u64)))`. */
 export function seedHash(seed: Uint8Array, fighter: AccountId, nonce: bigint | number): Uint8Array {
-  return sha256(serialize(SEED_SCHEMA, { seed: require32(seed, 'seed'), fighter, nonce: BigInt(nonce) }));
+  return sha256(
+    serialize(SEED_SCHEMA, { seed: require32(seed, 'seed'), fighter, nonce: BigInt(nonce) }),
+  );
 }
 
 /** The exact bytes the bot service signs: `borsh(TicketMessage { domain, arena, ticket })`. */

@@ -104,7 +104,9 @@ describe('merkle.json parity', () => {
 describe('input checks and encodings', () => {
   it('rejects a short salt and a missing direction', () => {
     expect(() => commitHash(Dir.Long, new Uint8Array(31), 1, 'a.testnet')).toThrow('salt');
-    expect(() => commitHash(Dir.None as Dir.Long, new Uint8Array(32), 1, 'a.testnet')).toThrow('dir');
+    expect(() => commitHash(Dir.None as Dir.Long, new Uint8Array(32), 1, 'a.testnet')).toThrow(
+      'dir',
+    );
   });
 
   it('round-trips base64 and hex', () => {
