@@ -3,8 +3,10 @@
 mod admin;
 mod damage;
 mod duel;
+mod merkle;
 mod picks;
 mod pot;
+mod results;
 mod score;
 mod season;
 mod ticket;
@@ -136,6 +138,16 @@ impl World {
     }
 
     pub fn with_ring(ring_size: Option<u32>) -> Self {
+        // Every world starts from empty storage, so several worlds can be built in one test.
+        near_sdk::env::set_blockchain_interface(near_sdk::MockedBlockchain::new(
+            VMContextBuilder::new().build(),
+            near_sdk::test_vm_config(),
+            near_sdk::RuntimeFeesConfig::test(),
+            vec![],
+            Default::default(),
+            Default::default(),
+            None,
+        ));
         ctx(&owner(), T0);
         let key = SigningKey::from_bytes(&[7u8; 32]);
         let mut arena = Arena::new(owner(), vault(), public_key(&key), ring_size);
