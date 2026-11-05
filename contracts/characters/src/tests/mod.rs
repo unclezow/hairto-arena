@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 mod catalog;
+mod mt;
 mod ownership;
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
