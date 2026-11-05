@@ -1,0 +1,612 @@
+.hub-dialog[data-panel='store'] {
+  width: min(1300px, calc(100vw - 48px));
+  max-width: none;
+  max-height: 94svh;
+}
+.hub-dialog[data-panel='store'] .hub-dialog-scroll {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #b9a46a99;
+  background: #15251c;
+}
+.hub-dialog[data-panel='store'] .hub-dialog-close {
+  top: 16px;
+  right: 16px;
+}
+.armory {
+  --entrance-start: 80ms;
+  display: flex;
+  flex-direction: column;
+  height: min(820px, calc(94svh - 16px));
+  min-height: 0;
+  color: #e9efcf;
+  background:
+    linear-gradient(180deg, #0b211a30, #10251c55 35%, #081d17c9),
+    url('/play/store/armory-workshop-v1.png') center / cover;
+}
+.hub-dialog .armory {
+  --entrance-start: 640ms;
+}
+.armory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 25px 78px 23px 32px;
+  background: linear-gradient(90deg, #0c2219ed, #0b2119b3, #0a1b1266);
+  border-bottom: 1px solid #c1ad694d;
+  flex-shrink: 0;
+}
+.armory-header p {
+  margin: 0 0 7px;
+  color: #b6b58b;
+  font: 7px var(--font-mono);
+  letter-spacing: 2px;
+}
+.armory-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  color: #fae4a4;
+  font-size: clamp(28px, 3vw, 39px);
+  font-style: italic;
+  font-weight: 1000;
+  line-height: 1;
+  letter-spacing: -1px;
+  text-shadow: 0 4px 0 #061b13;
+}
+.armory-header h1 > span {
+  color: #bca863;
+  font-size: 23px;
+}
+.armory-header-tag {
+  color: #fff0bf;
+  font: 13px var(--font-mono);
+  font-weight: 800;
+  text-shadow: 0 2px 4px #061b13;
+  letter-spacing: 2px;
+}
+.armory-collection {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 30px 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+.armory-collection::-webkit-scrollbar {
+  display: none;
+}
+.armory-collection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 3px;
+}
+.armory-collection-heading > div > span {
+  color: #fff0bf;
+  font: 12px var(--font-mono);
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-shadow: 0 2px 4px #061b13;
+}
+.armory-collection-heading h2 {
+  margin: 5px 0 0;
+  color: #fff2cd;
+  font-size: 25px;
+  font-weight: 900;
+  font-style: italic;
+  text-shadow: 0 2px 4px #061b13;
+}
+.armory-collection-heading p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: #fff0c5;
+  font: 12px var(--font-mono);
+  font-weight: 700;
+  line-height: 1.5;
+  text-shadow: 0 2px 4px #061b13;
+  letter-spacing: 0.7px;
+}
+.armory-fighter-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+.armory-fighter-count > b {
+  font-size: 30px;
+  color: #f2df9e;
+}
+.armory-collection-heading p > i {
+  width: 3px;
+  height: 3px;
+  margin-inline: 7px;
+  background: #d9ce97;
+  transform: rotate(45deg);
+}
+.armory-roster {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 15px;
+  flex: 1;
+  min-height: 360px;
+  max-height: 500px;
+  width: 100%;
+  padding: 29px 3px 15px;
+  margin-block: auto;
+}
+.armory-fighter {
+  --card-order: 0;
+  --fighter-accent: #bcd281;
+  --fighter-tint: #486b37;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #c2c48c88;
+  border-radius: 20px 4px 16px 4px;
+  background: radial-gradient(ellipse at 50% 28%, var(--fighter-tint), transparent 85%), #102a22f2;
+  box-shadow:
+    inset 0 2px 0 #fff3c12e,
+    inset 0 -5px 0 #051a1299,
+    0 5px 0 #05180fe6;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms,
+    border-color 180ms;
+  animation: armory-card-arrive 680ms cubic-bezier(0.16, 0.85, 0.24, 1) both;
+  animation-delay: calc(var(--entrance-start) + var(--card-order) * 115ms);
+}
+.armory-fighter:nth-child(2) {
+  --card-order: 1;
+}
+.armory-fighter:nth-child(3) {
+  --card-order: 2;
+}
+.armory-fighter:nth-child(4) {
+  --card-order: 3;
+}
+.armory-fighter:nth-child(5) {
+  --card-order: 4;
+}
+.armory-fighter::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  inset: -20% 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    #fff1be00 40%,
+    #fff1be33 49%,
+    #fffbe866 50%,
+    #fff1be22 54%,
+    transparent 65%
+  );
+  animation: armory-card-glint 750ms ease-out both;
+  animation-delay: calc(var(--entrance-start) + 180ms + var(--card-order) * 115ms);
+}
+@keyframes armory-card-arrive {
+  0% {
+    opacity: 0;
+    translate: -58px 12px;
+    rotate: -2deg;
+    scale: 0.95;
+  }
+  65% {
+    opacity: 1;
+    translate: 4px -2px;
+    rotate: 0.3deg;
+    scale: 1.008;
+  }
+  100% {
+    opacity: 1;
+    translate: 0 0;
+    rotate: 0deg;
+    scale: 1;
+  }
+}
+@keyframes armory-card-glint {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+  15% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+.armory-fighter[data-character='1'] {
+  --fighter-accent: #b3d6ec;
+  --fighter-tint: #36586f;
+}
+.armory-fighter[data-character='2'] {
+  --fighter-accent: #c8d98e;
+  --fighter-tint: #506735;
+}
+.armory-fighter[data-character='3'] {
+  --fighter-accent: #aad3bd;
+  --fighter-tint: #29584b;
+}
+.armory-fighter[data-character='4'] {
+  --fighter-accent: #f1c393;
+  --fighter-tint: #785137;
+}
+.armory-fighter:hover {
+  transform: translateY(-6px);
+  border-color: #f5df9c;
+}
+.armory-fighter[data-preview='true'] {
+  border-color: #f5dc8d;
+  box-shadow:
+    inset 0 0 0 2px #f3d58844,
+    0 5px 0 #796333,
+    0 0 24px #f3d58818;
+}
+.armory-fighter:focus-visible {
+  outline: 2px solid #fff0b7;
+  outline-offset: 4px;
+}
+.armory-card-top {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  top: 15px;
+  inset-inline: 13px;
+  font: 6px var(--font-mono);
+  color: var(--fighter-accent);
+  letter-spacing: 0.8px;
+}
+.armory-card-top > i {
+  font-style: normal;
+  padding: 4px 5px;
+  background: #09231999;
+  border: 1px solid #d0d7ac33;
+  border-radius: 3px;
+  font-size: 5px;
+}
+.armory-fighter-emblem {
+  position: absolute;
+  z-index: -1;
+  inset: 50px 0 auto;
+  color: var(--fighter-accent);
+  font-size: 170px;
+  text-align: center;
+  opacity: 0.09;
+  line-height: 1;
+}
+.armory-card-visual {
+  position: absolute;
+  inset: 38px 0 115px;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  mask-image: linear-gradient(#000 65%, transparent 100%);
+  -webkit-mask-image: linear-gradient(#000 65%, transparent 100%);
+}
+.armory-card-visual .game-character-portrait {
+  object-fit: contain;
+  object-position: center 20%;
+}
+.armory-fighter[data-preview='true'] .armory-card-visual {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+.armory-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 20px 16px 15px;
+  background: linear-gradient(transparent, #0b241acc 30%, #0b241af2);
+}
+.armory-card-copy > small {
+  color: var(--fighter-accent);
+  font: 6px var(--font-mono);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+.armory-card-copy > strong {
+  color: #fff0c1;
+  font-size: clamp(17px, 1.8vw, 24px);
+  font-weight: 1000;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+  text-shadow: 0 3px 0 #061c14;
+}
+.armory-card-copy > span {
+  color: #adbea2;
+  font-size: 9px;
+  line-height: 1.6;
+  min-height: 30px;
+}
+.armory-card-price {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 12px 10px;
+  padding: 8px;
+  border: 1px solid #d5c1ff99;
+  border-radius: 7px 2px;
+  background: linear-gradient(135deg, #9270e4, #6641b1);
+  box-shadow:
+    inset 0 1px 0 #efe4ff66,
+    0 3px 0 #36245c;
+  color: #f1e7ff;
+  cursor: pointer;
+  transition:
+    filter 150ms,
+    translate 150ms;
+}
+.armory-card-price:hover {
+  filter: brightness(1.15);
+  translate: 0 -1px;
+}
+.armory-card-price:active {
+  translate: 0 1px;
+}
+.armory-buy-label {
+  margin-right: auto;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 950;
+}
+.armory-card-price:focus-visible,
+.armory-card-action:focus-visible {
+  outline: 2px solid #fff1ba;
+  outline-offset: 3px;
+}
+.armory-card-price img {
+  flex-shrink: 0;
+}
+.armory-card-price strong {
+  font-size: 24px;
+  font-weight: 950;
+  font-style: italic;
+  line-height: 1;
+}
+.armory-card-price small {
+  align-self: center;
+  font: 7px var(--font-mono);
+  color: #c8b5ef;
+  letter-spacing: 1px;
+}
+.armory-card-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  margin: 0 8px 10px;
+  border: 1px solid #b5c08055;
+  border-radius: 6px 2px;
+  background: linear-gradient(120deg, #a1b46226, #243e2433);
+  color: #f3efd0;
+  font: 11px var(--font-mono);
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+.armory-card-action > b {
+  font: 18px sans-serif;
+}
+.armory-fighter:hover .armory-card-action,
+.armory-fighter[data-preview='true'] .armory-card-action {
+  color: #302b15;
+  background: linear-gradient(#e5cf88, #ae904b);
+  border-color: #f4e2a6;
+  box-shadow:
+    inset 0 1px 0 #fff1c477,
+    0 2px 0 #584321;
+}
+.armory-summoning {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font: 7px var(--font-mono);
+  letter-spacing: 1px;
+  color: #dfd69f;
+}
+.armory-collection-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 0 19px;
+  color: #d0bd7b;
+}
+.armory-collection-note > span {
+  font-size: 14px;
+}
+.armory-collection-note p {
+  text-align: center;
+  margin: 0;
+  color: #ece4bd;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 700;
+}
+.armory-collection-note small {
+  display: block;
+  margin-top: 5px;
+  color: #a6b39b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 400;
+}
+.armory-footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 30px;
+  border-top: 1px solid #c2b67744;
+  background: #091f17db;
+  flex-shrink: 0;
+}
+.armory-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d8d9a4;
+  font: 7px var(--font-mono);
+  letter-spacing: 1px;
+}
+.armory-footer i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c9d78b;
+}
+.armory-footer p {
+  margin: 0;
+  color: #a4b297;
+  font-size: 10px;
+}
+.armory-footer > small {
+  margin-left: auto;
+  color: #b6b58e;
+  font-size: 9px;
+}
+@media (max-width: 1000px) {
+  .armory-roster {
+    gap: 10px;
+  }
+  .armory-card-copy {
+    padding-inline: 10px;
+  }
+  .armory-card-action {
+    padding-inline: 9px;
+    font-size: 10px;
+  }
+  .armory-card-top {
+    inset-inline: 9px;
+  }
+  .armory-card-top > i {
+    font-size: 4px;
+  }
+  .armory-collection-heading p {
+    max-width: 300px;
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+}
+@media (max-width: 750px) {
+  .hub-dialog[data-panel='store'] {
+    width: calc(100vw - 24px);
+  }
+  .armory-header {
+    padding: 20px 56px 18px 20px;
+  }
+  .armory-header-tag {
+    display: none;
+  }
+  .armory-collection {
+    padding: 18px 18px 0;
+  }
+  .armory-collection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .armory-collection-heading h2 {
+    font-size: 21px;
+  }
+  .armory-collection-heading p {
+    max-width: none;
+    font-size: 11px;
+  }
+  .armory-collection-heading p > i {
+    display: none;
+  }
+  .armory-roster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 310px;
+    min-height: auto;
+    max-height: none;
+    flex: none;
+    padding-top: 22px;
+    margin: 0;
+  }
+  .armory-card-copy > strong {
+    font-size: 19px;
+  }
+  .armory-card-top > i {
+    display: none;
+  }
+  .armory-footer {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 12px 18px;
+  }
+  .armory-footer p {
+    display: none;
+  }
+}
+@media (max-width: 500px) {
+  .armory-roster {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 300px;
+    gap: 12px;
+  }
+  .armory-collection-heading > div > span {
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .armory-collection-heading h2 {
+    font-size: 19px;
+  }
+  .armory-card-copy > strong {
+    font-size: 19px;
+  }
+  .armory-card-copy > span {
+    font-size: 8px;
+  }
+  .armory-card-action {
+    margin-inline: 6px;
+    font-size: 10px;
+  }
+  .armory-footer > span {
+    font-size: 6px;
+  }
+  .armory-footer > small {
+    font-size: 7px;
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .armory-fighter {
+    transition: none;
+    animation: none;
+  }
+  .armory-fighter::after {
+    animation: none;
+    display: none;
+  }
+  .armory-fighter:hover {
+    transform: none;
+  }
+}
