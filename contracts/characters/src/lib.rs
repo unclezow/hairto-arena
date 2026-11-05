@@ -4,6 +4,8 @@
 //! scores, eligibility or payouts; no other Hairto Arena contract reads this one.
 
 use near_sdk::store::{IterableSet, LookupMap, Vector};
+
+pub mod events;
 use near_sdk::{near, AccountId, BorshStorageKey, PanicOnDefault};
 
 /// 1 USDC in base units (6 decimals).
@@ -21,6 +23,16 @@ enum StorageKey {
     Listings,
     Balances,
     Equipped,
+}
+
+/// Roles the owner can grant. The owner holds none of them implicitly.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    /// Pauses and unpauses purchases and grants.
+    Guardian,
+    /// Grants free copies.
+    Minter,
 }
 
 /// A listed character kind.
