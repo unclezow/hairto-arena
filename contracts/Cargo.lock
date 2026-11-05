@@ -1984,6 +1984,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-mt-receiver"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "mock-usdc"
 version = "0.1.0"
 dependencies = [

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["arena", "mock-arena", "mock-ft-receiver", "mock-usdc", "mock-vault", "vault"]
+members = ["arena", "mock-arena", "mock-ft-receiver", "mock-mt-receiver", "mock-usdc", "mock-vault", "vault"]
 
 [workspace.package]
 edition = "2021"
