@@ -2,7 +2,7 @@
   "network": "testnet",
   "rpcUrl": "https://test.rpc.fastnear.com",
   "explorerUrl": "https://testnet.nearblocks.io",
-  "startBlock": null,
+  "startBlock": 276323679,
   "contracts": {
     "arena": "arena.hairto.testnet",
     "vault": "vault.hairto.testnet",
@@ -24,8 +24,13 @@
     }
   },
   "publicKeys": {
-    "botService": null,
-    "pusherGasKey": null,
-    "botGasKeys": { "1": null, "2": null, "3": null, "4": null }
+    "botService": "ed25519:Ha8bTezsTR6ay6Mtdxc4MnEPRNT3PJqtXXLNmm1or25a",
+    "pusherGasKey": "ed25519:Au3gDpjwxxMHnVVmc1zeeQDwN6rsxPqJu73Kdmf7qgZR",
+    "botGasKeys": {
+      "1": "ed25519:3Ae9WGPJTTLGo328soQPu6tmn5ggHsshuSrMhTiGPuad",
+      "2": "ed25519:GAQb9XL3G7PvjAzazoMsB5gQ13KXA1gDkzAjUvUvWB4x",
+      "3": "ed25519:DKsnm2SGsvSikgCRxg1gR2FXFUDnE18se5B1SWiRbaLJ",
+      "4": null
+    }
   }
 }
