@@ -28,6 +28,9 @@ impl Arena {
             active_damage_config: self.active_damage_config,
             next_duel_id: self.next_duel_id,
             current_season: self.current_season,
+            claims_paused: self.claims_paused,
+            token_id: self.token_id.clone(),
+            total_pots: near_sdk::json_types::U128(self.total_pots),
         }
     }
 
@@ -37,6 +40,7 @@ impl Arena {
             guardians: self.guardians.iter().cloned().collect(),
             operators: self.operators.iter().cloned().collect(),
             pushers: self.pushers.iter().cloned().collect(),
+            keepers: self.keepers.iter().cloned().collect(),
         }
     }
 

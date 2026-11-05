@@ -120,6 +120,25 @@ impl Arena {
         .emit();
     }
 
+    /// Guardian: stops prize and bonus claims. Separate from the duel pause; vault withdrawals are never affected.
+    pub fn pause_claims(&mut self) {
+        self.assert_role(Role::Guardian);
+        self.claims_paused = true;
+        ArenaEvent::ClaimsPaused {
+            by: env::predecessor_account_id(),
+        }
+        .emit();
+    }
+
+    pub fn unpause_claims(&mut self) {
+        self.assert_role(Role::Guardian);
+        self.claims_paused = false;
+        ArenaEvent::ClaimsUnpaused {
+            by: env::predecessor_account_id(),
+        }
+        .emit();
+    }
+
     // ---------------------------------------------------------------- parameters
 
     /// Owner: updates the given parameters within their bounds. Applies to duels created afterwards.
@@ -282,6 +301,7 @@ impl Arena {
             Role::Guardian => self.guardians.contains(account_id),
             Role::Operator => self.operators.contains(account_id),
             Role::Pusher => self.pushers.contains(account_id),
+            Role::Keeper => self.keepers.contains(account_id),
         }
     }
 
@@ -296,6 +316,7 @@ impl Arena {
             Role::Guardian => &mut self.guardians,
             Role::Operator => &mut self.operators,
             Role::Pusher => &mut self.pushers,
+            Role::Keeper => &mut self.keepers,
         }
     }
 
