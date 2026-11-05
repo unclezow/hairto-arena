@@ -1,0 +1,49 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+dist-worker/
+.next/
+out/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# rust / cargo-near
+target/
+contracts/target/
+contracts/**/target/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+*.tar.gz
+*.pem
+near-credentials/
+.near-credentials/
+
+# prisma
+apps/api/src/generated/
+
+# playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# planning material kept outside this repo
+docs/
+openspec/
+hackathon-commit-plan.md
+DuelVault.md
+
+# misc
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
