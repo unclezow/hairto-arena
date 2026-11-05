@@ -24,6 +24,8 @@ const MAX_DECISIONS_HASH_LEN: usize = 64;
 #[ext_contract(ext_vault)]
 pub trait Vault {
     fn can_play(&self, account_id: AccountId) -> bool;
+    fn can_pick(&self, account_id: AccountId) -> bool;
+    fn role_of(&self, account_id: AccountId) -> Option<crate::types::VaultPool>;
 }
 
 /// Borsh payload of a ticket, with the seed hash as raw bytes.

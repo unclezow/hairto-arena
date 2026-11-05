@@ -99,6 +99,14 @@ pub enum Role {
     Keeper,
 }
 
+/// Mirror of the vault's pool (the depositor's role), used to decode `vault.role_of`.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VaultPool {
+    Fighter,
+    Backer,
+}
+
 /// The two kinds of season payout, each with its own merkle root.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

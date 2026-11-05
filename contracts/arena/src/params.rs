@@ -28,6 +28,13 @@ pub const GAS_FOR_ON_START_DUEL: Gas = Gas::from_tgas(40);
 /// Minimum prepaid gas for `start_duel`. The frontend attaches 100 Tgas.
 pub const MIN_GAS_FOR_START_DUEL: Gas = Gas::from_tgas(60);
 
+// ---- Gas for the pick round trip (two joined vault views) ----
+pub const GAS_FOR_CAN_PICK: Gas = Gas::from_tgas(5);
+pub const GAS_FOR_ROLE_OF: Gas = Gas::from_tgas(5);
+pub const GAS_FOR_ON_PICK: Gas = Gas::from_tgas(20);
+/// Minimum prepaid gas for `pick`.
+pub const MIN_GAS_FOR_PICK: Gas = Gas::from_tgas(50);
+
 // ---- Damage. PnL unit is ppm: 1 ppm = 0.01 bps ----
 pub const PPM: i128 = 1_000_000;
 pub const PPM_PER_BPS: i64 = 100;
