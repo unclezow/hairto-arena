@@ -30,11 +30,7 @@ describe('NearBotGateway', () => {
       'Short',
       Buffer.alloc(32, 0xcd).toString('base64'),
     );
-    expect(arena.revealBotSeed).toHaveBeenCalledWith(
-      5n,
-      Buffer.alloc(32, 0xab).toString('base64'),
-      'bot:2',
-    );
+    expect(arena.revealBotSeed).toHaveBeenCalledWith(5n, Buffer.alloc(32, 0xab).toString('base64'));
   });
 
   it('answers isPriceFresh from is_stale', async () => {

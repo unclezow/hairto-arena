@@ -144,6 +144,10 @@ export class FakeBotGateway implements BotGateway {
     return this.nonces.get(fighter) ?? 0;
   }
 
+  async nextDuelId() {
+    return Number(this.nextId);
+  }
+
   count(fn: string) {
     return this.calls.filter((c) => c.fn === fn).length;
   }

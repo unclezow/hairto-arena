@@ -36,6 +36,7 @@ export interface BotGateway {
   openPosition(level: BotLevel, duelId: bigint, commit: string): Promise<void>;
   /** `salt` is 64 hex characters. */
   closePosition(level: BotLevel, duelId: bigint, dir: Dir, salt: string): Promise<void>;
+  /** Permissionless: sent from the keeper account and awaited to finality. The arena deletes the duel afterwards. */
   revealSeed(level: BotLevel, duelId: bigint, seed: Seed): Promise<void>;
   getDuel(duelId: bigint): Promise<ChainDuel | null>;
   /** Whether the arena has a tick for the asset recent enough to trade on (`is_stale`). */
@@ -44,6 +45,8 @@ export interface BotGateway {
   /** What the Fighter has in flight: a duel waiting for the vault answer, or a running duel. */
   activeDuelOf(fighter: AccountId): Promise<ActiveSlot | null>;
   nonceOf(fighter: AccountId): Promise<number>;
+  /** Id the arena will give the next duel; every lower id was used. */
+  nextDuelId(): Promise<number>;
 }
 
 export const BOT_GATEWAY = Symbol('BOT_GATEWAY');
@@ -83,8 +86,8 @@ export class NearBotGateway implements BotGateway {
     await this.send(() => this.arena.closePosition(level, duelId, DIR_NAME[dir], saltB64));
   }
 
-  async revealSeed(level: BotLevel, duelId: bigint, seed: Seed) {
-    await this.send(() => this.arena.revealBotSeed(duelId, seedToBase64(seed), `bot:${level}`));
+  async revealSeed(_level: BotLevel, duelId: bigint, seed: Seed) {
+    await this.send(() => this.arena.revealBotSeed(duelId, seedToBase64(seed)));
   }
 
   async getDuel(duelId: bigint): Promise<ChainDuel | null> {
@@ -121,6 +124,10 @@ export class NearBotGateway implements BotGateway {
 
   nonceOf(fighter: AccountId) {
     return this.arena.nonceOf(fighter);
+  }
+
+  async nextDuelId() {
+    return (await this.arena.getConfig()).next_duel_id;
   }
 
   private async send(call: () => Promise<unknown>) {
