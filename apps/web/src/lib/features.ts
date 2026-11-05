@@ -9,6 +9,7 @@
  * components/play/character-collection.tsx (store purchase button).
  * near-web-economy: hooks/use-vault.ts, hooks/use-game-assets.ts,
  * hooks/use-lobby-data.ts (equip), components/mvp/{claim-list,backer-panel,economy-panel,admin-panel}.tsx.
+ * hooks/use-economy-data.ts and components/mvp/wallet-bar.tsx (legacy useTx).
  */
 export function featureReady(feature: 'duel' | 'economy'): boolean {
   void feature;

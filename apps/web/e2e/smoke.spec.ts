@@ -182,3 +182,13 @@ test('direct leaderboard links preserve the lobby connection gate', async ({ pag
   await expect(page).toHaveURL(/panel=leaderboard/);
   await expect(page.getByRole('dialog', { name: 'CONNECT WALLET' })).toBeVisible();
 });
+
+test('economy and admin controls are explicitly unavailable in the wallet baseline', async ({ page }) => {
+  await mockWalletAndApi(page);
+  await page.goto('/economy');
+  await expect(page.getByText('Economy details are not available yet.')).toBeVisible();
+  await page.goto('/admin');
+  await expect(page.getByText('Admin actions are not available yet.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start new season', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Harvest into the pot', exact: true })).toBeDisabled();
+});
