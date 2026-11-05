@@ -168,3 +168,17 @@ test('direct live-arena links are fenced and do not request a duel ticket', asyn
   await expect(page).toHaveURL(/\/play\/lobby$/);
   expect(tickets).toEqual([]);
 });
+
+test('result pages preserve their layout with live result reads fenced', async ({ page }) => {
+  await mockWalletAndApi(page);
+  await page.goto('/duel/1/result');
+  await expect(page.getByRole('heading', { name: 'DUELS NOT AVAILABLE YET', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'BACK TO LOBBY' })).toBeVisible();
+});
+
+test('direct leaderboard links preserve the lobby connection gate', async ({ page }) => {
+  await mockWalletAndApi(page);
+  await page.goto('/play/leaderboard');
+  await expect(page).toHaveURL(/panel=leaderboard/);
+  await expect(page.getByRole('dialog', { name: 'CONNECT WALLET' })).toBeVisible();
+});
