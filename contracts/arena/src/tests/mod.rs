@@ -11,6 +11,7 @@ mod score;
 mod season;
 mod ticket;
 mod ticks;
+mod vectors;
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 

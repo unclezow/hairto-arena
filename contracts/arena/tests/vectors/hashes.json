@@ -1,0 +1,71 @@
+{
+  "commit": "sha256(borsh((dir: u8, salt: [u8; 32], duel_id: u64, player: String))), Long = 1, Short = 2",
+  "seed_hash": "sha256(borsh((seed: [u8; 32], fighter: String, nonce: u64)))",
+  "ticket_message": "borsh(TicketMessage { domain: \"hairto-arena/seed-ticket/v1\", arena: String, ticket: { fighter: String, asset_id: u32, bot_level: u8, seed_hash: [u8; 32], nonce: u64, deadline_ms: u64 } })",
+  "encoding": "hex without prefix; u64 values as decimal strings",
+  "commits": [
+    {
+      "dir": 1,
+      "salt": "0101010101010101010101010101010101010101010101010101010101010101",
+      "duel_id": "1",
+      "player": "fighter.testnet",
+      "commit": "79d078e157e9d553649fba11807d8e2d7ad8d371311b99abae614bfcf50b7deb"
+    },
+    {
+      "dir": 2,
+      "salt": "abababababababababababababababababababababababababababababababab",
+      "duel_id": "42",
+      "player": "rookie.bots.hairto.testnet",
+      "commit": "39a751d499999d0190d07950c32192dcf07df4acf438e230ad852da186784273"
+    },
+    {
+      "dir": 1,
+      "salt": "0707070707070707070707070707070707070707070707070707070707070707",
+      "duel_id": "18446744073709551615",
+      "player": "98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de",
+      "commit": "16a77814fc38b6be16a16ce023d1beee0d8a6213ca66d0fe9e2205ec17db6fa2"
+    }
+  ],
+  "seed_hashes": [
+    {
+      "seed": "0909090909090909090909090909090909090909090909090909090909090909",
+      "fighter": "fighter.testnet",
+      "nonce": "0",
+      "seed_hash": "ef72dc8fb238b07890690af2982f1342acc3b395ca04697f8a12aeb93dbcd310"
+    },
+    {
+      "seed": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "fighter": "98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de",
+      "nonce": "7",
+      "seed_hash": "00dc20b7404e6b22f463db7b9ded83de615a824b1cb6e070d2cd83fac9311cc3"
+    },
+    {
+      "seed": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "fighter": "a.testnet",
+      "nonce": "18446744073709551615",
+      "seed_hash": "5bd5d280f61393f7407fc76848399155df32034dfbd2b1be82cec9702db77bf0"
+    }
+  ],
+  "ticket_messages": [
+    {
+      "arena": "arena.hairto.testnet",
+      "fighter": "fighter.testnet",
+      "asset_id": 2,
+      "bot_level": 1,
+      "seed_hash": "0303030303030303030303030303030303030303030303030303030303030303",
+      "nonce": "0",
+      "deadline_ms": "1800000030000",
+      "message": "1b00000068616972746f2d6172656e612f736565642d7469636b65742f7631140000006172656e612e68616972746f2e746573746e65740f000000666967687465722e746573746e657402000000010303030303030303030303030303030303030303030303030303030303030303000000000000000030c55c18a3010000"
+    },
+    {
+      "arena": "arena2.hairto.testnet",
+      "fighter": "98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de",
+      "asset_id": 1,
+      "bot_level": 4,
+      "seed_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "nonce": "123",
+      "deadline_ms": "18446744073709551615",
+      "message": "1b00000068616972746f2d6172656e612f736565642d7469636b65742f7631150000006172656e61322e68616972746f2e746573746e657440000000393837393363643931613366383730666231323666363632383538303863376530393461666366633465646138613937306636363438636466306462643664650100000004eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee7b00000000000000ffffffffffffffff"
+    }
+  ]
+}
