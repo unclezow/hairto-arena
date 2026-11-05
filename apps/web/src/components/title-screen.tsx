@@ -122,7 +122,7 @@ export function TitleScreen() {
                 <h3>Prepare your fighter</h3>
                 <p>
                   Connect with Google, email, or a NEAR wallet in the lobby. Claim test USDC, then deposit at
-                  least {VAULTS.fighter.minDepositUsd} USDC into Vault A. You also need testnet NEAR
+                  least {VAULTS.fighter.minDepositUsd} USDC into the Fighter pool. You also need testnet NEAR
                   for gas. One wallet holds one role: Fighter or Backer.
                 </p>
               </div>
