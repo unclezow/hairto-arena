@@ -2,7 +2,7 @@
 
 import { STABLE_DECIMALS, VAULTS } from '@hairto-arena/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { parseUnits } from '@/lib/amount';
 import { useNearWallet } from '@/lib/near/context';
 import { economyViews, VAULT_REGISTRATION_NEAR, type Pool } from '@/lib/near/economy';
@@ -70,6 +70,12 @@ export function useVault(pool: Pool = 'Fighter') {
   const views = economyViews(config);
   const [busy, setBusy] = useState<VaultAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The latest problem, readable right after an action resolves (state updates land on the next render).
+  const lastError = useRef<string | null>(null);
+  const fail = useCallback((problem: string | null) => {
+    lastError.current = problem;
+    setError(problem);
+  }, []);
 
   const reads = useQuery({
     queryKey: ['vault', pool, config.contracts.vault, accountId],
@@ -89,21 +95,21 @@ export function useVault(pool: Pool = 'Fighter') {
     async (action: VaultAction, calls: () => Promise<WalletCall[]>, check: (outcomes: unknown[]) => string | null) => {
       if (!accountId || !wallet) return false;
       setBusy(action);
-      setError(null);
+      fail(null);
       try {
         const outcomes = await walletSend(config, accountId, wallet, await calls());
         const problem = check(outcomes);
-        if (problem) setError(problem);
+        if (problem) fail(problem);
         return !problem;
       } catch (err) {
-        setError(firstLine(err));
+        fail(firstLine(err));
         return false;
       } finally {
         setBusy(null);
         await Promise.all([balances.refresh(), queries.invalidateQueries({ queryKey: ['vault'] })]);
       }
     },
-    [accountId, balances, config, queries, wallet],
+    [accountId, balances, config, fail, queries, wallet],
   );
 
 
@@ -183,6 +189,8 @@ export function useVault(pool: Pool = 'Fighter') {
     eligible: principal >= minimum,
     busy,
     error,
+    /** The problem of the last action, available as soon as it resolves. */
+    lastError: () => lastError.current,
     claim,
     deposit,
     withdraw,

@@ -71,7 +71,7 @@ export function BackerPanel() {
   } catch {
     parsed = 0n;
   }
-  const action = (ok: () => Promise<boolean>) => async () => ((await ok()) ? null : (vault.error ?? 'Not done'));
+  const action = (ok: () => Promise<boolean>) => async () => ((await ok()) ? null : (vault.lastError() ?? 'Not done'));
 
   const pick = (fighter: string) =>
     tx.run('Pick', async () => {
