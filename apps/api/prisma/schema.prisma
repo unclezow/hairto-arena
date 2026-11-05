@@ -1,0 +1,543 @@
+// Read model for the API. The NEAR contracts are the source of truth; these tables mirror on-chain state and hold
+// off-chain data (bot configs, replays, merkle proofs, pending seed tickets).
+// Account columns hold NEAR account ids (at most 64 characters). Transaction hashes are base58, seed hashes and
+// commits base64, merkle roots hex.
+// Run `pnpm db:generate` after editing, then `pnpm db:migrate`.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DuelStatus {
+  CREATED
+  ACTIVE
+  FINISHED
+  FORFEITED
+  VOIDED
+}
+
+enum Dir {
+  LONG
+  SHORT
+}
+
+enum VaultKind {
+  FIGHTER // Fighter pool
+  BACKER // Backer pool
+}
+
+enum VaultAction {
+  DEPOSIT
+  WITHDRAW
+  CLAIM_YIELD
+}
+
+enum RewardKind {
+  PRIZE // fighter prize
+  BONUS // backer bonus
+}
+
+enum FighterStatus {
+  ACTIVE
+  INACTIVE
+  FLAGGED
+}
+
+model Season {
+  id              Int       @id // onchain season number
+  startAt         DateTime  @map("start_at")
+  endAt           DateTime  @map("end_at")
+  phase           String
+  prizeRoot       String?   @map("prize_root")
+  bonusRoot       String?   @map("bonus_root")
+  resultsPostedAt DateTime? @map("results_posted_at")
+  /// Totals posted with the roots; the arena caps claims at these.
+  prizeTotal      Decimal?  @map("prize_total") @db.Decimal(78, 0)
+  bonusTotal      Decimal?  @map("bonus_total") @db.Decimal(78, 0)
+  potAmount       Decimal   @default(0) @map("pot_amount") @db.Decimal(78, 0)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  duels   Duel[]
+  scores  FighterSeasonScore[]
+  picks   Pick[]
+  results SeasonResult[]
+  claims  Claim[]
+  run     SeasonRun?
+  flags   FighterFlag[]
+  abuseReport AbuseReport?
+
+  @@map("seasons")
+}
+
+model Fighter {
+  address   String        @id @db.VarChar(64) // NEAR account id
+  status    FighterStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  scores   FighterSeasonScore[]
+  duels    Duel[]
+  pickedBy Pick[]
+  flags    FighterFlag[]
+
+  @@map("fighters")
+}
+
+/// Season score: written once per finished duel.
+model FighterSeasonScore {
+  seasonId       Int       @map("season_id")
+  fighterAddress String    @map("fighter_address") @db.VarChar(64)
+  points         Int       @default(0)
+  duels          Int       @default(0)
+  wins           Int       @default(0)
+  reachedAt      DateTime? @map("reached_at")
+
+  season  Season  @relation(fields: [seasonId], references: [id])
+  fighter Fighter @relation(fields: [fighterAddress], references: [address])
+
+  @@id([seasonId, fighterAddress])
+  @@index([seasonId, points(sort: Desc)])
+  @@map("fighter_season_scores")
+}
+
+model Bot {
+  id       Int     @id @default(autoincrement())
+  address  String  @unique @db.VarChar(64)
+  name     String
+  level    Int // 1 Rookie, 2 Trend, 3 Reversion, 4 Oracle
+  strategy String
+  config   Json
+  active   Boolean @default(true)
+
+  duels Duel[]
+
+  @@map("bots")
+}
+
+model Duel {
+  id             BigInt     @id // onchain duel id
+  seasonId       Int        @map("season_id")
+  fighterAddress String     @map("fighter_address") @db.VarChar(64)
+  botId          Int        @map("bot_id")
+  assetId        Int        @map("asset_id")
+  status         DuelStatus @default(CREATED)
+  startAt        DateTime?  @map("start_at")
+  endAt          DateTime?  @map("end_at")
+  hpFighter      Int?       @map("hp_fighter")
+  hpBot          Int?       @map("hp_bot")
+  winner         String?    @db.VarChar(64)
+  ko             Boolean    @default(false)
+  pointsAwarded  Int        @default(0) @map("points_awarded")
+  /// False for a duel beyond the daily cap: it can be played but awards no points.
+  counted        Boolean    @default(true)
+  /// Bot parameters snapshot used for this duel.
+  botConfig      Json       @map("bot_config")
+  /// Base58 hash of the Fighter's `start_duel` transaction.
+  createdTxHash  String?    @map("created_tx_hash")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  season    Season     @relation(fields: [seasonId], references: [id])
+  fighter   Fighter    @relation(fields: [fighterAddress], references: [address])
+  bot       Bot        @relation(fields: [botId], references: [id])
+  positions Position[]
+  botSeed   BotSeed?
+
+  @@index([fighterAddress, createdAt(sort: Desc)])
+  @@index([fighterAddress, id(sort: Desc)])
+  @@index([seasonId, status])
+  @@map("duels")
+}
+
+model Position {
+  id         Int       @id @default(autoincrement())
+  /// Id of the row in the indexer's `position` table, the natural key for sync upserts.
+  externalId String    @unique @map("external_id")
+  duelId     BigInt    @map("duel_id")
+  player     String    @db.VarChar(64)
+  isBot      Boolean   @map("is_bot")
+  /// Base64 commit hash. Not emitted by the contract, so the indexer cannot fill it.
+  commit     String?
+  dir        Dir? // revealed on close
+  openTick   Int?      @map("open_tick")
+  closeTick  Int?      @map("close_tick")
+  openPrice  Decimal?  @map("open_price") @db.Decimal(38, 18)
+  closePrice Decimal?  @map("close_price") @db.Decimal(38, 18)
+  /// Net PnL in ppm (1 ppm = 0.01 bps), after paper cost or the unrevealed penalty.
+  pnlPpm        Int?      @map("pnl_ppm")
+  /// HP change applied to this player and to the opponent by the contract's damage strategy.
+  selfDelta     Int?      @map("self_delta")
+  opponentDelta Int?      @map("opponent_delta")
+  /// Never revealed: the arena charged the unrevealed penalty at settle.
+  penalized     Boolean   @default(false)
+  openedAt   DateTime? @map("opened_at")
+  closedAt   DateTime? @map("closed_at")
+
+  duel Duel @relation(fields: [duelId], references: [id])
+
+  @@index([duelId])
+  @@map("positions")
+}
+
+/// Bot seed commit-reveal for auditability.
+model BotSeed {
+  duelId     BigInt    @id @map("duel_id")
+  /// Base64 `seed_hash` of the seed ticket.
+  seedHash   String    @map("seed_hash")
+  seed       String? // stored encrypted or only after reveal, never exposed before the duel ends
+  revealedAt DateTime? @map("revealed_at")
+  /// Set when the seed was still not revealed after the timeout: the duel is excluded from scoring.
+  unrevealedAt DateTime? @map("unrevealed_at")
+
+  duel Duel @relation(fields: [duelId], references: [id])
+
+  @@map("bot_seeds")
+}
+
+model Backer {
+  address   String   @id @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  picks Pick[]
+
+  @@map("backers")
+}
+
+/// The transaction behind each duel event (create, open, close, settle, seed reveal), for explorer links.
+model DuelTx {
+  id          Int      @id @default(autoincrement())
+  /// Id of the row in the indexer's `duel_tx` table, `${receiptId}-${logIndex}`.
+  externalId  String   @unique @map("external_id")
+  duelId      BigInt   @map("duel_id")
+  /// created | opened | closed | penalized | finished | forfeited | voided | seed_revealed
+  kind        String
+  /// Owner of the position for opened / closed / penalized; null for duel-level steps.
+  player      String?  @db.VarChar(64)
+  txHash      String   @map("tx_hash")
+  /// Only for closed / penalized: revealed direction (1 long, 2 short), net PnL in ppm and the HP deltas.
+  dir           Int?
+  pnlPpm        Int?     @map("pnl_ppm")
+  selfDelta     Int?     @map("self_delta")
+  opponentDelta Int?     @map("opponent_delta")
+  /// Block height and the event's index among the receipt's logs.
+  blockNumber BigInt   @map("block_number")
+  logIndex    Int      @map("log_index")
+  timestamp   DateTime
+
+  @@index([duelId])
+  @@map("duel_txs")
+}
+
+model Deposit {
+  id          Int         @id @default(autoincrement())
+  address     String      @db.VarChar(64)
+  vault       VaultKind
+  action      VaultAction
+  amount      Decimal     @db.Decimal(78, 0)
+  txHash      String      @map("tx_hash")
+  logIndex    Int         @map("log_index")
+  blockNumber BigInt      @map("block_number")
+  timestamp   DateTime
+
+  @@unique([txHash, logIndex])
+  @@index([address, vault])
+  @@map("deposits")
+}
+
+model Pick {
+  seasonId       Int      @map("season_id")
+  backerAddress  String   @map("backer_address") @db.VarChar(64)
+  fighterAddress String   @map("fighter_address") @db.VarChar(64)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  season  Season  @relation(fields: [seasonId], references: [id])
+  backer  Backer  @relation(fields: [backerAddress], references: [address])
+  fighter Fighter @relation(fields: [fighterAddress], references: [address])
+
+  @@id([seasonId, backerAddress])
+  @@index([seasonId, fighterAddress])
+  @@map("picks")
+}
+
+/// Off-chain computed results with merkle proofs.
+model SeasonResult {
+  seasonId Int        @map("season_id")
+  address  String     @db.VarChar(64)
+  kind     RewardKind
+  rank     Int?
+  amount   Decimal    @db.Decimal(78, 0)
+  proof    Json
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@id([seasonId, address, kind])
+  @@map("season_results")
+}
+
+model Claim {
+  id        Int        @id @default(autoincrement())
+  seasonId  Int        @map("season_id")
+  address   String     @db.VarChar(64)
+  kind      RewardKind
+  amount    Decimal    @db.Decimal(78, 0)
+  txHash    String     @unique @map("tx_hash")
+  claimedAt DateTime   @map("claimed_at")
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([address])
+  @@map("claims")
+}
+
+/// Price ticks kept for duel replay.
+model Tick {
+  assetId     Int      @map("asset_id")
+  tickIndex   Int      @map("tick_index")
+  price       Decimal  @db.Decimal(38, 18)
+  expo        Int
+  publishTime DateTime @map("publish_time")
+
+  @@id([assetId, tickIndex])
+  @@map("ticks")
+}
+
+/// Position of the indexer sync job per mirrored table (see backend-indexer-read-model).
+model SyncCursor {
+  name        String   @id
+  blockNumber BigInt   @map("block_number")
+  logIndex    Int      @map("log_index")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("sync_cursors")
+}
+
+/// Oracle feed behind an arena asset. `assetId` is the id `arena.add_asset` assigned.
+model AssetFeed {
+  assetId         Int     @id @map("asset_id")
+  /// 32-byte feed id as 64 hex characters (Pyth feed id, or the mock feed id).
+  feedId          String  @map("feed_id")
+  symbol          String
+  /// Tokenized equities only trade during exchange hours.
+  marketHoursOnly Boolean @map("market_hours_only")
+
+  arenas         Arena[] @relation("ArenaAsset")
+  fallbackArenas Arena[] @relation("ArenaFallback")
+
+  @@map("asset_feeds")
+}
+
+/// One arena = one market with a session calendar. Outside the session it rotates to the fallback asset.
+model Arena {
+  id              Int     @id @default(autoincrement())
+  name            String  @unique
+  assetId         Int     @map("asset_id")
+  fallbackAssetId Int?    @map("fallback_asset_id")
+  /// Session window in minutes since UTC midnight. Both null means always open. end < start wraps past midnight.
+  sessionStartMin Int?    @map("session_start_min")
+  sessionEndMin   Int?    @map("session_end_min")
+  /// Bit n set = open on UTC weekday n (0 = Sunday). 127 = every day.
+  weekdayMask     Int     @default(127) @map("weekday_mask")
+  active          Boolean @default(true)
+
+  asset    AssetFeed  @relation("ArenaAsset", fields: [assetId], references: [assetId])
+  fallback AssetFeed? @relation("ArenaFallback", fields: [fallbackAssetId], references: [assetId])
+
+  @@map("arenas")
+}
+
+/// What the keeper has done for a season: closing, computing the results, posting them.
+model SeasonRun {
+  seasonId    Int       @id @map("season_id")
+  /// closing | computed | posted | dispute | finalized
+  state       String
+  /// Fingerprint of everything the results were computed from, so anyone can recompute and compare.
+  inputsHash  String?   @map("inputs_hash")
+  prizeRoot   String?   @map("prize_root")
+  bonusRoot   String?   @map("bonus_root")
+  pot         Decimal?  @db.Decimal(78, 0)
+  payoutTotal Decimal?  @map("payout_total") @db.Decimal(78, 0)
+  /// Pot not paid out (floored remainders, prize shares nobody filled): it rolls over.
+  dust        Decimal?  @db.Decimal(78, 0)
+  postedTxHash String?  @map("posted_tx_hash")
+  /// Computed but deliberately not sent (KEEPER_DRY_RUN).
+  dryRun      Boolean   @default(false) @map("dry_run")
+  /// Why the last attempt did not go through, if it did not.
+  error       String?
+  computedAt  DateTime? @map("computed_at")
+  postedAt    DateTime? @map("posted_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@map("season_runs")
+}
+
+/// Vault harvests (`vault_harvested` events): where the season pot comes from.
+model Harvest {
+  id          Int       @id @default(autoincrement())
+  vault       VaultKind
+  /// Season whose pot received `toPot` (the arena's funding season at harvest time).
+  seasonId    Int?      @map("season_id")
+  grossYield  Decimal   @map("gross_yield") @db.Decimal(78, 0)
+  fee         Decimal   @db.Decimal(78, 0)
+  toPot       Decimal   @map("to_pot") @db.Decimal(78, 0)
+  /// Share returned to the depositors (Backer pool only).
+  toOwners    Decimal   @map("to_owners") @db.Decimal(78, 0)
+  txHash      String    @map("tx_hash")
+  logIndex    Int       @map("log_index")
+  blockNumber BigInt    @map("block_number")
+  timestamp   DateTime
+
+  @@unique([txHash, logIndex])
+  @@index([timestamp])
+  @@map("harvests")
+}
+
+/// A seed ticket the bot service signed, written before the ticket is handed out, so a crash cannot lose the seed.
+/// The duel watcher moves it into `bot_seeds` once the Fighter's `start_duel` created the duel, and deletes it when
+/// the ticket expires unused.
+model PendingTicket {
+  /// Base64 `seed_hash` of the ticket.
+  seedHash       String   @id @map("seed_hash")
+  /// AES-GCM encrypted, never plain.
+  encryptedSeed  String   @map("encrypted_seed")
+  fighterAddress String   @map("fighter_address") @db.VarChar(64)
+  botLevel       Int      @map("bot_level")
+  botAddress     String   @map("bot_address") @db.VarChar(64)
+  assetId        Int      @map("asset_id")
+  /// The Fighter's arena nonce the ticket was signed for.
+  nonce          BigInt
+  deadlineAt     DateTime @map("deadline_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([fighterAddress])
+  @@index([deadlineAt])
+  @@map("pending_tickets")
+}
+
+/// Insert-only record of every admin change, written in the same transaction as the change itself.
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  actor     String
+  action    String
+  target    String
+  before    Json?
+  after     Json?
+  requestId String?  @map("request_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actor, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+enum FlagStatus {
+  OPEN
+  DISMISSED
+  CONFIRMED
+}
+
+/// A pattern the anti-abuse job noticed. Advisory only: it never changes scores, ranking or prizes.
+model FighterFlag {
+  id             Int        @id @default(autoincrement())
+  fighterAddress String     @map("fighter_address") @db.VarChar(64)
+  seasonId       Int        @map("season_id")
+  /// easy-bot-farming | cap-hugging | winrate-outlier | deposit-cycling
+  rule           String
+  score          Float
+  /// The rule's parameters, the data window and the counts, so a reviewer can recompute it.
+  evidence       Json
+  status         FlagStatus @default(OPEN)
+  note           String?
+  reviewedBy     String?    @map("reviewed_by")
+  reviewedAt     DateTime?  @map("reviewed_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  fighter Fighter @relation(fields: [fighterAddress], references: [address])
+  season  Season  @relation(fields: [seasonId], references: [id])
+
+  @@unique([fighterAddress, seasonId, rule])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([seasonId])
+  @@map("fighter_flags")
+}
+
+/// Flags per rule and the prize-eligible fighters among the flagged, made for the operator before results are posted.
+model AbuseReport {
+  seasonId    Int      @id @map("season_id")
+  report      Json
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@map("abuse_reports")
+}
+
+/// Character catalog of the NEP-245 contract, mirrored from the indexer. Id 0 (free default) is not stored.
+model Character {
+  id        Int      @id
+  /// USDC base units; 0 = free.
+  price     Decimal  @db.Decimal(78, 0)
+  /// 0 = unlimited.
+  maxSupply Int      @map("max_supply")
+  minted    Int
+  active    Boolean
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("characters")
+}
+
+/// Copies of a character held by an account (NEP-245 balance).
+model CharacterBalance {
+  address     String @db.VarChar(64)
+  characterId Int    @map("character_id")
+  amount      Int
+
+  @@id([address, characterId])
+  @@map("character_balances")
+}
+
+/// Character an account has equipped now (0 = default).
+model CharacterEquip {
+  address     String @id @db.VarChar(64)
+  characterId Int    @map("character_id")
+
+  @@map("character_equips")
+}
+
+/// Every equip change, to resolve the character a fighter had when a duel was created.
+model CharacterEquipEvent {
+  id          Int      @id @default(autoincrement())
+  /// `${receiptId}-${logIndex}`, the indexer's key.
+  externalId  String   @unique @map("external_id")
+  address     String   @db.VarChar(64)
+  characterId Int      @map("character_id")
+  equippedAt  DateTime @map("equipped_at")
+  blockNumber BigInt   @map("block_number")
+  logIndex    Int      @map("log_index")
+
+  @@index([address, equippedAt])
+  @@map("character_equip_events")
+}
+
+/// Purchases (paid to the treasury) and free grants.
+model CharacterPurchase {
+  id          Int      @id @default(autoincrement())
+  externalId  String   @unique @map("external_id")
+  address     String   @db.VarChar(64)
+  characterId Int      @map("character_id")
+  /// purchase | grant
+  kind        String
+  price       Decimal  @db.Decimal(78, 0)
+  txHash      String   @map("tx_hash")
+  purchasedAt DateTime @map("purchased_at")
+
+  @@index([address])
+  @@map("character_purchases")
+}
