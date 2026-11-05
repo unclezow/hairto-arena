@@ -1,0 +1,119 @@
+.arena-outro {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  pointer-events: none;
+  color: #fff0bf;
+}
+.arena-outro-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 48%, transparent 25%, #152b2480 100%);
+  animation: arena-outro-reveal 1s ease both;
+}
+.arena-outro-banner {
+  position: absolute;
+  top: 17%;
+  width: 100%;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(90deg, transparent, #193b32dd 30%, #193b32dd 70%, transparent);
+  text-shadow:
+    0 3px 0 #26372c,
+    0 8px 30px #10291d;
+  animation: arena-outro-arrive 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.arena-outro-banner > span {
+  font:
+    9px var(--font-geist-mono),
+    monospace;
+  letter-spacing: 4px;
+  color: #d8ca94;
+}
+.arena-outro-banner h2 {
+  font-size: clamp(38px, 7vw, 90px);
+  line-height: 1.1;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 3px;
+  margin: 8px 0;
+}
+.arena-outro-banner p {
+  color: #e4e6d1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.arena-outro[data-outcome='loss'] {
+  color: #e0b8ab;
+}
+.arena-outro[data-outcome='loss'] .arena-outro-vignette {
+  background: radial-gradient(ellipse at 50% 48%, #25304715 25%, #15202c99 100%);
+}
+.arena-outro[data-outcome='draw'],
+.arena-outro[data-outcome='void'] {
+  color: #d7e8eb;
+}
+.arena-outro-continue {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 22px;
+  color: #fff0bf;
+  background: linear-gradient(#526347, #35492f);
+  border: 1px solid #c3b777;
+  border-radius: 7px 2px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 0 #172b20;
+}
+.arena-outro-continue:hover {
+  filter: brightness(1.15);
+}
+.arena-outro-continue:focus-visible {
+  outline: 3px solid #fff0bf;
+  outline-offset: 5px;
+}
+@keyframes arena-outro-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes arena-outro-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 600px) {
+  .arena-outro-banner {
+    top: 22%;
+    padding: 16px 12px;
+  }
+  .arena-outro-banner p {
+    font-size: 11px;
+  }
+  .arena-outro-banner > span {
+    font-size: 8px;
+    letter-spacing: 2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena-outro-banner,
+  .arena-outro-vignette {
+    animation: none;
+  }
+}

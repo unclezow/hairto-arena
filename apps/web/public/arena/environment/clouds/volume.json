@@ -1,0 +1,10 @@
+{
+  "width": 128,
+  "height": 80,
+  "depth": 80,
+  "channels": 2,
+  "format": "unsigned-byte RG",
+  "coordinates": "x contiguous, then y, then z",
+  "red": "density",
+  "green": "baked sunlight transmittance"
+}

@@ -1,0 +1,25 @@
+/* Keep the existing transparent controls legible against the pale sky. */
+.arena-page .arena-terrain-label {
+  color: #57786e;
+  text-shadow: 0 1px 2px #ffffffb3;
+}
+.arena-page .arena-terrain-label > span:first-child {
+  color: #6b8c7f;
+}
+.arena-page .arena-terrain-line {
+  background: #71988b66;
+}
+.arena-page .arena-scene-status {
+  color: #47685c;
+  text-shadow: 0 1px 2px #ffffffa3;
+}
+.arena-page .arena-muted {
+  color: #6c887e;
+}
+.arena-page .arena-status-dot.ready {
+  background: #7e9a61;
+  box-shadow: 0 0 0 3px #7e9a610d;
+}
+.arena-page .arena-bottom-note {
+  color: #6d8b8099;
+}
