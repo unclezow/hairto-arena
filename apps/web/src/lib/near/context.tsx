@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { NearConnector } from '@hot-labs/near-connect';
 import { getConnector, watchConnection, type WalletConnection } from './connector';
 import { fallbackConfig, loadNearConfig, type NearConfig } from './config';
+import { setWalletSessionConnection } from '../wallet-auth';
 
 interface NearContextValue extends WalletConnection {
   config: NearConfig;
@@ -25,7 +26,10 @@ export function NearProvider({ children }: { children: ReactNode }) {
       const connector = await getConnector(config);
       if (controller.signal.aborted) return;
       setState((previous) => ({ ...previous, config, connector, error: null }));
-      stop = watchConnection(connector, (connection) => setState((previous) => ({ ...previous, ...connection })));
+      stop = watchConnection(connector, (connection) => {
+        setWalletSessionConnection(connection.wallet && connection.accountId ? { wallet: connection.wallet, accountId: connection.accountId } : null);
+        setState((previous) => ({ ...previous, ...connection }));
+      });
     }).catch((error: unknown) => {
       if (!controller.signal.aborted) setState((previous) => ({ ...previous, error: error instanceof Error ? error.message : 'Wallet connection failed.' }));
     });
