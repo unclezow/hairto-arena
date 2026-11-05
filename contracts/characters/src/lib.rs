@@ -11,6 +11,7 @@ pub mod equip;
 pub mod events;
 pub mod mt_core;
 pub mod mt_resolver;
+pub mod mt_views;
 pub mod shop;
 
 #[cfg(test)]
