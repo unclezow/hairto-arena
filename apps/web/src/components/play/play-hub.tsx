@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BOT_LEVELS, type BotLevel, type MarketView } from '@hairto-arena/shared';
 import { api } from '@/lib/api';
@@ -29,10 +29,9 @@ import { useBalances } from '@/hooks/use-balances';
 import { useFighterReadiness } from '@/hooks/use-fighter-readiness';
 import { useOwnedCharacters } from '@/hooks/use-lobby-data';
 import { DEFAULT_BOT_LEVEL, pickDefaultMarket } from '@/hooks/use-start-duel';
-import { featureReady } from '@/lib/features';
 import { useNearWallet } from '@/lib/near/context';
 import { MINIMUM_GAS_BALANCE, quickPlayPromptSeen } from '@/lib/onboarding';
-import { useWalletSession } from '@/hooks/use-wallet-session';
+import { lastSignInError, useWalletSession } from '@/hooks/use-wallet-session';
 
 const LobbyFighter = dynamic(() => import('./lobby-fighter'), {
   ssr: false,
@@ -121,11 +120,12 @@ export function PlayHub({
       : (assets.find((market) => market.assetId === selectedAssetId) ?? null);
   const [botLevel, setBotLevel] = useState<BotLevel>(() => {
     const requestedLevel = Number(search.get('bot'));
-    return requestedLevel === 1 || requestedLevel === 2 || requestedLevel === 3
+    return requestedLevel === 1 || requestedLevel === 2 || requestedLevel === 3 || requestedLevel === 4
       ? requestedLevel
       : DEFAULT_BOT_LEVEL;
   });
   const session = useWalletSession();
+  const router = useRouter();
   const { config } = useNearWallet();
   // Everything personal (address, BATTLE, vault, Leaderboard, Store) waits for the API sign-in, not just the wallet.
   const loggedIn = !!session.token;
@@ -204,9 +204,56 @@ export function PlayHub({
   );
   const battleBusy = flow?.kind === 'working';
   const battle = async () => {
-    if (!loggedIn) { openConnect(); return; }
-    if (!featureReady('duel')) {
-      setFlow({ kind: 'error', title: 'DUELS NOT AVAILABLE YET', hint: 'Wallet setup is ready. Arena play will be enabled in the duel update.' });
+    if (!loggedIn) {
+      openConnect();
+      return;
+    }
+    if (battleBusy) return;
+    const run = ++runId.current;
+    const alive = () => run === runId.current;
+    const fail = (title: string, hint: string) => setFlow({ kind: 'error', title, hint });
+    try {
+      if (!session.token) {
+        setFlow({ kind: 'working', phase: 'signin' });
+        if (!(await session.signIn())) {
+          if (alive()) fail('SIGN-IN FAILED', lastSignInError() ?? 'Could not sign in. Try again.');
+          return;
+        }
+        if (!alive()) return;
+      }
+      setFlow({ kind: 'working', phase: 'prepare' });
+      const result = await readiness.ensureReady();
+      if (!alive()) return;
+      if (!result.ok) {
+        if (result.reason === 'NEEDS_DEPOSIT') {
+          // Funds move only when the player confirms in the vault dialog.
+          setFlow(null);
+          openVaultDialog('deposit', 'Deposit at least 10 USDC to play.');
+        } else if (result.reason === 'WRONG_ROLE') {
+          fail('BACKERS CANNOT DUEL', 'This account is a Backer. Use a Fighter account to play.');
+        } else if (result.reason === 'NEEDS_GAS') {
+          fail('ADD TESTNET NEAR FOR GAS', 'Get testnet NEAR from near-faucet.io, then press BATTLE again.');
+        } else {
+          console.error('[battle] prepare failed:', result.message);
+          fail('COULD NOT PREPARE', 'Could not check your account. Try again.');
+        }
+        return;
+      }
+      setFlow({ kind: 'working', phase: 'start' });
+      if (!selectedMarket) {
+        fail('NO ASSET SELECTED', 'Open the SOLO panel and choose an available asset.');
+        return;
+      }
+      if (!selectedMarket.open) {
+        fail('MARKET CLOSED', 'This asset is not ready for trading. Choose an open market in the SOLO panel.');
+        return;
+      }
+      // The seed ticket is requested and the duel created from the arena once the scene has loaded, so the
+      // 30 s round never starts while the player waits for assets.
+      setFlow({ kind: 'working', phase: 'enter' });
+      router.push(`/arena?start=1&bot=${botLevel}&asset=${selectedMarket.assetId}`);
+    } catch {
+      if (alive()) fail('COULD NOT START', 'Something went wrong. Try again.');
     }
   };
   const requested = search.get('panel');
