@@ -116,10 +116,11 @@ function keyRejected(error: unknown) {
   return !!reason && typeof reason === 'object' && ('NotEnoughAllowance' in reason || 'AccessKeyNotFound' in reason);
 }
 
-export interface ArenaCallOptions { deposit?: string; onStatus?: (status: QuickPlayStatus) => void }
+export interface ArenaCallOptions { deposit?: string; /** Prepaid gas in Tgas (default 30). */ gasTgas?: number; onStatus?: (status: QuickPlayStatus) => void }
 /** Money actions and non-play methods always use the connected wallet. Deposits are yoctoNEAR. */
 export async function arenaCall(config: NearConfig, accountId: string, wallet: NearWalletBase, method: string, args: object, options: ArenaCallOptions = {}) {
   const deposit = options.deposit ?? '0';
+  const gasTgas = options.gasTgas ?? 30;
   const eligible = (PLAY_METHODS as readonly string[]).includes(method) && BigInt(deposit) === 0n;
   const status = eligible ? await quickPlayStatus(config, accountId) : null;
   if (status) options.onStatus?.(status);
@@ -127,7 +128,7 @@ export async function arenaCall(config: NearConfig, accountId: string, wallet: N
     const key = readQuickPlayKey(config.network, accountId);
     if (key) {
       try {
-        const result = await localClient(config, accountId, key).call(config.contracts.arena, method, args, { gas: '30 Tgas', attachedDeposit: '0 yocto' });
+        const result = await localClient(config, accountId, key).call(config.contracts.arena, method, args, { gas: `${gasTgas} Tgas`, attachedDeposit: '0 yocto' });
         transactionCompleted();
         // A failed refresh must not turn an already-sent transaction into a wallet retry.
         void quickPlayStatus(config, accountId).then((next) => options.onStatus?.(next)).catch(() => undefined);
@@ -139,7 +140,7 @@ export async function arenaCall(config: NearConfig, accountId: string, wallet: N
       }
     }
   }
-  const result = await wallet.signAndSendTransaction({ signerId: accountId, receiverId: config.contracts.arena, network: config.network, actions: [{ type: 'FunctionCall', params: { methodName: method, args, gas: '30000000000000', deposit } }] });
+  const result = await wallet.signAndSendTransaction({ signerId: accountId, receiverId: config.contracts.arena, network: config.network, actions: [{ type: 'FunctionCall', params: { methodName: method, args, gas: (BigInt(gasTgas) * 1_000_000_000_000n).toString(), deposit } }] });
   transactionCompleted();
   if (eligible) void quickPlayStatus(config, accountId).then((next) => options.onStatus?.(next)).catch(() => undefined);
   return result;
