@@ -263,7 +263,7 @@ export function PlayHub({
       // The seed ticket is requested and the duel created from the arena once the scene has loaded, so the
       // 30 s round never starts while the player waits for assets.
       setFlow({ kind: 'working', phase: 'enter' });
-      router.push(`/arena?start=1&bot=${botLevel}&asset=${selectedMarket.assetId}`);
+      router.push(`/arena?start=1&bot=${botLevel}&asset=${selectedMarket.assetId}&n=${Date.now()}`);
     } catch {
       if (alive()) fail('COULD NOT START', 'Something went wrong. Try again.');
     }

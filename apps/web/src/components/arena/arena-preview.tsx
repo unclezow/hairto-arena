@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import type { MarketView } from '@hairto-arena/shared';
+import { DUEL, type MarketView } from '@hairto-arena/shared';
 import {
   Component,
   useCallback,
@@ -68,11 +68,23 @@ type LiveHit = {
   kind: AttackKind;
   left: number;
   right: number;
-  /** Shown at the tap from the price then; the chain's numbers replace it when its close arrives. */
+  /** Shown at the tap from the price then; the chain's numbers correct it when its close arrives. */
   predicted?: boolean;
+  entry?: PredictedHit;
 };
 
-/** A predicted hit the chain has not confirmed after this long is dropped and the bars follow the chain. */
+/**
+ * A hit shown at the tap. `left` and `right` are what the bars were actually lowered by (clamped, so a prediction
+ * never shows a knock-out). `actual` holds the chain's numbers when its close arrived before the animation hit.
+ */
+type PredictedHit = {
+  left: number;
+  right: number;
+  applied: boolean;
+  actual?: { left: number; right: number };
+};
+
+/** A predicted hit the chain has not confirmed after this long is taken back. */
 const PREDICT_TTL_MS = 12_000;
 
 const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
@@ -102,7 +114,20 @@ class SceneBoundary extends Component<
   }
 }
 
+/**
+ * One mounted arena per battle. With cache components Next keeps the page it leaves and shows it again for the same
+ * route, so BATTLE would land on the previous arena: its HP, its used start attempt (no new duel was ever requested)
+ * and its finished state. Every BATTLE carries a new `n`, and the duel it creates keeps it, so a battle is one
+ * instance from the countdown to the result and the next battle starts from nothing. An arena opened by a duel id
+ * alone (the match history) is keyed by that id.
+ */
 export function ArenaPreview() {
+  const search = useSearchParams();
+  const key = search.get('n') ?? `duel-${search.get('duel') ?? 'preview'}`;
+  return <ArenaScreen key={key} />;
+}
+
+function ArenaScreen() {
   const player = useSelectedFighter();
   const [paused, setPaused] = useState(false);
   const { engine: audio, snapshot: audioSnapshot } = useArenaAudio();
@@ -152,13 +177,23 @@ export function ArenaPreview() {
       const liveHit = liveHits.current.get(request.id);
       if (liveHit) {
         liveHits.current.delete(request.id);
-        // A predicted hit never reaches 0: a knock-out is decided by the chain only.
+        // A predicted hit never reaches 0: a knock-out is decided by the chain only. If the chain's close already
+        // arrived, its numbers are used instead of the prediction.
         const floor = liveHit.predicted ? 1 : 0;
-        setHp((current) => ({
-          left: Math.max(floor, current.left + liveHit.left),
-          right: Math.max(floor, current.right + liveHit.right),
-        }));
-        setHit({ id: request.id, target, damage: -liveHit[target] });
+        const delta = liveHit.entry?.actual ?? liveHit;
+        setHp((current) => {
+          const next = {
+            left: Math.max(floor, current.left + delta.left),
+            right: Math.max(floor, current.right + delta.right),
+          };
+          if (liveHit.entry) {
+            liveHit.entry.left = next.left - current.left;
+            liveHit.entry.right = next.right - current.right;
+            liveHit.entry.applied = true;
+          }
+          return next;
+        });
+        setHit({ id: request.id, target, damage: -delta[target] });
       } else {
         const damage = ATTACKS[request.kind].damage;
         setHp((current) => ({ ...current, [target]: Math.max(0, current[target] - damage) }));
@@ -204,9 +239,8 @@ export function ArenaPreview() {
   const queue = useRef<LiveHit[]>([]);
   const [queued, setQueued] = useState(0);
   // Hits shown at the tap and not yet confirmed by the chain, newest last, and how many closes are awaited.
-  const predicted = useRef<{ left: number; right: number; at: number }[]>([]);
+  const predicted = useRef<PredictedHit[]>([]);
   const expectClose = useRef(0);
-  const [predictVersion, setPredictVersion] = useState(0);
   const predictCtx = useRef<{ side: 'long' | 'short' | null; entry?: number; price: number | null; assetId: number }>({
     side: null,
     price: null,
@@ -216,24 +250,38 @@ export function ArenaPreview() {
   const live = useLiveDuel(
     duelId,
     (position) => {
-      if (!position.isBot && expectClose.current > 0) {
-        // This close was already animated from the price at the tap; the chain's numbers only correct the bars.
-        expectClose.current -= 1;
-        predicted.current.shift();
-        setPredictVersion((v) => v + 1);
-        return;
-      }
       const self: FighterSide = position.isBot ? 'right' : 'left';
       const other: FighterSide = self === 'left' ? 'right' : 'left';
       const selfDelta = position.selfDelta ?? 0;
       const opponentDelta = position.opponentDelta ?? 0;
+      const left = self === 'left' ? selfDelta : opponentDelta;
+      const right = self === 'right' ? selfDelta : opponentDelta;
+      if (!position.isBot && expectClose.current > 0) {
+        // This close was already shown from the price at the tap: only the difference to the chain's numbers is
+        // applied (the bars can go up again when the prediction was too high). If the animation has not hit yet, it
+        // will use the chain's numbers.
+        expectClose.current -= 1;
+        const entry = predicted.current.shift();
+        if (entry && entry.applied) {
+          const fixLeft = left - entry.left;
+          const fixRight = right - entry.right;
+          if (fixLeft !== 0 || fixRight !== 0)
+            setHp((h) => ({
+              left: Math.min(DUEL.startingHp, Math.max(0, h.left + fixLeft)),
+              right: Math.min(DUEL.startingHp, Math.max(0, h.right + fixRight)),
+            }));
+        } else if (entry) {
+          entry.actual = { left, right };
+        }
+        return;
+      }
       const damage = Math.max(-opponentDelta, -selfDelta, 0);
       if (damage === 0) return;
       queue.current.push({
         attacker: opponentDelta < 0 ? self : other,
         kind: attackKindFor(damage),
-        left: self === 'left' ? selfDelta : opponentDelta,
-        right: self === 'right' ? selfDelta : opponentDelta,
+        left,
+        right,
       });
       setQueued((n) => n + 1);
     },
@@ -246,15 +294,26 @@ export function ArenaPreview() {
     const bps = ((c.price - c.entry) / c.entry) * 10_000 * (c.side === 'long' ? 1 : -1);
     const damage = damageForBps(bps, c.assetId);
     if (damage === 0) return;
+    const entry: PredictedHit = { left: 0, right: 0, applied: false };
     const hit: LiveHit =
       bps > 0
-        ? { attacker: 'left', kind: attackKindFor(damage), left: 0, right: -damage, predicted: true }
-        : { attacker: 'right', kind: attackKindFor(damage), left: -damage, right: 0, predicted: true };
+        ? { attacker: 'left', kind: attackKindFor(damage), left: 0, right: -damage, predicted: true, entry }
+        : { attacker: 'right', kind: attackKindFor(damage), left: -damage, right: 0, predicted: true, entry };
     queue.current.push(hit);
-    predicted.current.push({ left: hit.left, right: hit.right, at: Date.now() });
+    predicted.current.push(entry);
     expectClose.current += 1;
     setQueued((n) => n + 1);
-    setTimeout(() => setPredictVersion((v) => v + 1), PREDICT_TTL_MS + 50);
+    // A close the chain never confirms: take the hit back.
+    setTimeout(() => {
+      const at = predicted.current.indexOf(entry);
+      if (at === -1) return;
+      predicted.current.splice(at, 1);
+      expectClose.current = Math.max(0, expectClose.current - 1);
+      setHp((h) => ({
+        left: Math.min(DUEL.startingHp, h.left - entry.left),
+        right: Math.min(DUEL.startingHp, h.right - entry.right),
+      }));
+    }, PREDICT_TTL_MS);
   }, []);
   const trading = useDuelTrading(duelId, live, onClosing);
   const outcome =
@@ -280,7 +339,10 @@ export function ArenaPreview() {
         assetId,
         botLevel: Number(search.get('bot')) || DEFAULT_BOT_LEVEL,
       });
-      if (started.ok) router.replace(`/arena?duel=${started.duelId}`);
+      // The battle's `n` stays in the address so the arena is not mounted again when the duel id arrives.
+      const battle = search.get('n');
+      if (started.ok)
+        router.replace(`/arena?duel=${started.duelId}${battle ? `&n=${encodeURIComponent(battle)}` : ''}`);
       else setStartError({ title: 'COULD NOT START', hint: startErrorText(started.code) });
     })();
   }, [starting, ready, attempt, search, startDuel, router]);
@@ -323,20 +385,16 @@ export function ArenaPreview() {
       setAttack(request);
       return;
     }
-    // Nothing left to animate (or no motion): show what the contract says, plus the hits it has not confirmed yet.
+    // Nothing left to animate (or no motion): the contract's HP lowers the bars when it is lower. HP never goes up in
+    // a duel, so a chain value that lags behind a hit already shown (or a stale one arriving late) must not raise a
+    // bar: that would bring a knocked-out fighter back for a moment.
     queue.current = [];
     setQueued(0);
-    const now = Date.now();
-    const before = predicted.current.length;
-    predicted.current = predicted.current.filter((p) => now - p.at < PREDICT_TTL_MS);
-    expectClose.current = Math.max(0, expectClose.current - (before - predicted.current.length));
-    const withPrediction = (chainHp: number, side: 'left' | 'right') =>
-      chainHp <= 0 ? 0 : Math.max(1, chainHp + predicted.current.reduce((n, p) => n + p[side], 0));
-    setHp({
-      left: withPrediction(live.state.hp.fighter, 'left'),
-      right: withPrediction(live.state.hp.bot, 'right'),
-    });
-  }, [duelId, attack, queued, ready, entered, reducedMotion, audio, live.state.hp, predictVersion]);
+    setHp((h) => ({
+      left: Math.min(h.left, live.state.hp.fighter),
+      right: Math.min(h.right, live.state.hp.bot),
+    }));
+  }, [duelId, attack, queued, ready, entered, reducedMotion, audio, live.state.hp]);
   useEffect(() => {
     if (!duelId || !outcome) return;
     audio.outcome(outcome);
@@ -377,7 +435,9 @@ export function ArenaPreview() {
   const inDuel = !!duelId && live.phase !== 'over';
   const livePanel: LivePanel | undefined = duelId
     ? {
-        price: current,
+        // The price shown is the latest tick, the price a tap trades at, so the entry line sits where the price was
+        // when the button was pressed. The candles keep the one-second quotes.
+        price: live.tick ? live.tick.price : current,
         series: quotePrices,
         symbol: markets.data?.items.find((m) => m.assetId === live.state.assetId)?.symbol ?? '—',
         feed: 'PYTH FEED',
