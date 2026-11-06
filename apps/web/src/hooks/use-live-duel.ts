@@ -143,7 +143,26 @@ export function useLiveDuel(
   useEffect(() => {
     if (!duelId || !token) return;
     const socket = getSocket();
-    const join = () => socket.emit(WS_EVENTS.joinDuel, duelId);
+    let stopped = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let joinTries = 0;
+    // The duel can reach the API's database a moment after the browser opens the arena. A refused join is retried
+    // instead of watching nothing, because only a joined room receives the attack events.
+    const join = () => {
+      clearTimeout(retry);
+      socket.emit(
+        WS_EVENTS.joinDuel,
+        duelId,
+        (ack?: { ok: boolean; error?: { code?: string } }) => {
+          if (stopped || !ack) return;
+          if (ack.ok) {
+            joinTries = 0;
+            return;
+          }
+          if (ack.error?.code === 'NOT_FOUND' && ++joinTries <= 30) retry = setTimeout(join, 500);
+        },
+      );
+    };
     const mine = (data: { duelId?: string }) => data?.duelId === duelId;
     const next = (data: { seq: number }) => {
       if (data.seq <= seq.current) return false;
@@ -230,6 +249,8 @@ export function useLiveDuel(
     else socket.connect();
 
     return () => {
+      stopped = true;
+      clearTimeout(retry);
       socket.emit(WS_EVENTS.leaveDuel, duelId);
       socket.off(WS_EVENTS.duelSnapshot, onSnapshot);
       socket.off(WS_EVENTS.duelStarted, onStarted);
