@@ -294,14 +294,23 @@ function TradingChart({
   );
 }
 
-export function TradingPanel({ enabled = true, live }: { enabled?: boolean; live?: LivePanel }) {
+export function TradingPanel({
+  enabled = true,
+  live,
+  preview,
+}: {
+  enabled?: boolean;
+  live?: LivePanel;
+  /** Shown before a duel exists, so the placeholder chart does not show another market's name and price. */
+  preview?: { symbol?: string; price?: number; series: number[] };
+}) {
   const gaugeId = useId().replaceAll(':', '');
   const [tick, setTick] = useState(0);
   const [position, setPosition] = useState<Position | null>(null);
   const [score, setScore] = useState({ wins: 0, losses: 0 });
   const [message, setMessage] = useState('');
   const demoPrice = BASE_PRICE + Math.sin(tick * 0.71) * 0.62 + Math.sin(tick * 0.23) * 0.35;
-  const price = live ? (live.price ?? 0) : demoPrice;
+  const price = live ? (live.price ?? 0) : (preview?.price ?? demoPrice);
   const change = position
     ? ((price - position.entry) / position.entry) * (position.side === 'long' ? 1 : -1)
     : 0;
@@ -381,8 +390,9 @@ export function TradingPanel({ enabled = true, live }: { enabled?: boolean; live
         profit: pnl >= 0,
         value: position ? `${pnl >= 0 ? '+' : '−'}$${money.format(Math.abs(pnl))}` : '— — —',
         hasValue: !!position,
-        big: multiplier.toFixed(1),
-        bigUnit: 'x',
+        // While a duel is being created from the lobby the panel already speaks the duel's units.
+        big: preview?.symbol ? '0' : multiplier.toFixed(1),
+        bigUnit: preview?.symbol ? 'DMG' : 'x',
         gauge: position ? Math.min(100, Math.abs(change) * 5000) : 0,
         meter: {
           now: Math.max(-2, Math.min(2, change * 100)),
@@ -450,8 +460,8 @@ export function TradingPanel({ enabled = true, live }: { enabled?: boolean; live
             entry={view?.entry}
             side={view?.side}
             pnlBps={live?.pnlBps}
-            series={live?.series}
-            symbol={live?.symbol}
+            series={live?.series ?? (preview && preview.series.length > 1 ? preview.series : undefined)}
+            symbol={live?.symbol ?? preview?.symbol}
             feed={live?.feed}
             timeLabel={live?.timeLabel}
           />

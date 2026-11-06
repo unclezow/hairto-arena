@@ -241,8 +241,24 @@ export function ArenaPreview() {
   const markets = useQuery({
     queryKey: ['markets'],
     queryFn: () => api<{ items: MarketView[] }>('/markets'),
-    enabled: !!duelId,
+    enabled: !!duelId || starting,
   });
+  // Before the duel exists the panel shows the asset the player asked for, with its real recent prices, not the
+  // chart's demo placeholder.
+  const requestedAssetId = Number(search.get('asset'));
+  const previewHistory = useQuery({
+    queryKey: ['preview-history', requestedAssetId],
+    queryFn: () =>
+      api<{ items: { price: string }[] }>(`/prices/${requestedAssetId}/history?limit=17`),
+    enabled: starting && Number.isSafeInteger(requestedAssetId) && requestedAssetId > 0,
+    refetchInterval: 5_000,
+  });
+  const previewSeries = previewHistory.data?.items.map((q) => Number(q.price)) ?? [];
+  const preview = {
+    symbol: markets.data?.items.find((m) => m.assetId === requestedAssetId)?.symbol,
+    price: previewSeries.at(-1),
+    series: previewSeries,
+  };
   useEffect(() => {
     if (!duelId) return;
     if (attack) return;
@@ -496,7 +512,7 @@ export function ArenaPreview() {
         </SceneBoundary>
       </div>
 
-      <TradingPanel enabled={entered} live={livePanel} />
+      <TradingPanel enabled={entered} live={livePanel} preview={preview} />
       {!entered && (
         <ArenaIntro
           // Remount once the assets and the start time are known, so the countdown begins from the right second.
