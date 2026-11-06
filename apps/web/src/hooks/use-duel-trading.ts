@@ -10,6 +10,21 @@ import { arenaCall } from '@/lib/near/quick-play-key';
 import { reasonOf } from '@/lib/trade-errors';
 import type { DuelPhase, LiveDuelState } from './use-live-duel';
 
+/**
+ * Longest the panel waits for one transaction. A send that hangs (a busy RPC node) would keep the buttons locked;
+ * after this the fate is unknown (`NOT CONFIRMED YET`), the position stays and the player can tap again. A close of
+ * a position that never opened is refused by the contract with `no open position`, which clears it.
+ */
+const TX_TIMEOUT_MS = 9_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('transaction timed out')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** Margin over the contract's minimum hold, because block time and local time differ slightly. */
 const HOLD_MARGIN_SEC = 0.5;
 
@@ -58,7 +73,7 @@ export function useDuelTrading(
   const send = useCallback(
     async (method: 'open_position' | 'close_position', args: object) => {
       if (!duelId || !accountId || !wallet) throw new Error('No duel');
-      const outcome = await arenaCall(config, accountId, wallet, method, args);
+      const outcome = await withTimeout(arenaCall(config, accountId, wallet, method, args), TX_TIMEOUT_MS);
       const hash = txHashOf(outcome);
       if (hash)
         void api(`/duels/${duelId}/tx`, { method: 'POST', body: JSON.stringify({ txHash: hash }) }).catch(

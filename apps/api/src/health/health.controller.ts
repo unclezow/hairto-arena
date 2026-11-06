@@ -12,6 +12,7 @@ import { NearService } from '../near/near.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { INDEXER_LAG_KEY } from '../redis/keys.js';
 import { RedisService } from '../redis/redis.service.js';
+import { redactUrlSecrets } from '../common/redact-url.js';
 
 export { INDEXER_LAG_KEY };
 
@@ -71,7 +72,7 @@ export class HealthController {
     const report = raw ? (JSON.parse(raw) as NearHealthReport) : null;
     return {
       network: this.near.deployment.network,
-      rpcUrl: this.near.deployment.rpcUrl,
+      rpcUrl: redactUrlSecrets(this.near.deployment.rpcUrl),
       stale: !report || Date.now() - report.at > 60_000,
       reportedAt: report ? new Date(report.at).toISOString() : null,
       keys: report?.keys ?? {},

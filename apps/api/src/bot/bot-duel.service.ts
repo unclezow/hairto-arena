@@ -152,18 +152,14 @@ export class BotDuelService {
           return null;
         });
         if (duelId !== null) {
-          await this.adopt(duelId, pending);
-          return duelId;
+          if (await this.tryAdopt(duelId, pending)) return duelId;
         }
         await sleep(this.pollMs);
       }
       if (this.stopped) return null;
       // Missed while polling (a slow RPC, a restart): look through the newest duels before giving up.
       const late = await this.findRecent(pending).catch(() => null);
-      if (late !== null) {
-        await this.adopt(late, pending);
-        return late;
-      }
+      if (late !== null && (await this.tryAdopt(late, pending))) return late;
       await this.seeds.deletePending(pending.seedHash);
       this.logger.log(`Ticket of ${pending.fighterAddress} expired unused`);
       return null;
@@ -196,6 +192,20 @@ export class BotDuelService {
       }
     }
     return null;
+  }
+
+  /**
+   * `adopt` that never throws. `watch` runs detached, so a failed RPC call here (a 429 from a busy public node, say)
+   * would otherwise be an unhandled rejection and take the whole worker down. The watcher tries again instead.
+   */
+  private async tryAdopt(duelId: bigint, pending: PendingRow): Promise<boolean> {
+    try {
+      await this.adopt(duelId, pending);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Duel ${duelId} not adopted yet: ${(err as Error).message}`);
+      return false;
+    }
   }
 
   /** Records the duel with its seed and, while the round is still on, starts playing. */

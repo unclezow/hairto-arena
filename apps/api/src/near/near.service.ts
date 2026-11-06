@@ -16,6 +16,7 @@ import {
 } from 'near-kit';
 import type { Env } from '../config/env.js';
 import { LanePool, type LaneStats } from './lane-pool.js';
+import { redactUrlSecrets } from '../common/redact-url.js';
 
 /** Service accounts. Each holds only the keys its role needs; none of them is ever sent to a browser. */
 export type SignerRole = 'pusher' | 'keeper' | `bot:${BotLevel}`;
@@ -210,7 +211,7 @@ export class NearService {
 
     const roles = [...this.signers.keys()];
     this.logger.log(
-      `NEAR ${this.deployment.network} via ${this.deployment.rpcUrl}; arena ${this.contracts.arena}; ` +
+      `NEAR ${this.deployment.network} via ${redactUrlSecrets(this.deployment.rpcUrl)}; arena ${this.contracts.arena}; ` +
         `signers: ${roles.length ? roles.join(', ') : 'none'}`,
     );
   }

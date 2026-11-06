@@ -181,6 +181,11 @@ export const envSchema = z.object({
   PRICE_PRIME_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   /** A `push_ticks` transaction pending longer than this is given up and sent again with a fresh price. */
   PRICE_PUSH_TIMEOUT_MS: z.coerce.number().int().positive().default(6000),
+  /**
+   * Pushes allowed in flight at once. Each takes 2-3 s on the testnet, so 2 gives a tick about every 1.3 s, but it
+   * doubles the RPC traffic; a public RPC answers 429 under that, so the default stays 1.
+   */
+  PRICE_PUSH_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
   HERMES_POLL_MS: z.coerce.number().int().positive().default(500),
   HERMES_STREAM_RETRY_MS: z.coerce.number().int().positive().default(5000),
   MOCK_SEED: z

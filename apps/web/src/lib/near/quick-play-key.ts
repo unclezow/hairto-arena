@@ -13,6 +13,20 @@ export type QuickPlayStatus =
   | { kind: 'active' | 'exhausted'; funded: true; publicKey: string; allowance: string };
 const storageKey = (network: string, accountId: string) => `hairto:quick-play:${network}:${accountId}`;
 
+/**
+ * The last status read per account. A play call checks the key before every send, which costs two RPC round
+ * trips; an `active` status is reused for a short time instead. A key that ran out meanwhile is still caught by
+ * the send itself (`keyRejected`), which then reads the status again.
+ */
+const STATUS_TTL_MS = 60_000;
+const statusCache = new Map<string, { status: QuickPlayStatus; at: number }>();
+const cacheId = (network: string, accountId: string) => `${network}:${accountId}`;
+
+/** Forgets every cached status, so a test or a sign-out starts from a fresh read. */
+export function resetQuickPlayStatusCache() {
+  statusCache.clear();
+}
+
 async function accountExists(near: Near, accountId: string) {
   try { await near.rpc.getAccount(accountId); return true; }
   catch (error) { if (error instanceof AccountDoesNotExistError) return false; throw error; }
@@ -48,7 +62,7 @@ function getOrCreateKey(network: string, accountId: string): BrowserKey {
   return key;
 }
 
-export async function quickPlayStatus(config: NearConfig, accountId: string, near = viewClient(config)): Promise<QuickPlayStatus> {
+async function readQuickPlayStatus(config: NearConfig, accountId: string, near = viewClient(config)): Promise<QuickPlayStatus> {
   if (!await accountExists(near, accountId)) return { kind: 'missing', funded: false };
   const key = readQuickPlayKey(config.network, accountId);
   if (!key) return { kind: 'missing', funded: true };
@@ -64,6 +78,12 @@ export async function quickPlayStatus(config: NearConfig, accountId: string, nea
     return { kind: 'missing', funded: true };
   }
   return { kind: BigInt(permission.allowance) > 0n ? 'active' : 'exhausted', funded: true, publicKey: key.publicKey, allowance: permission.allowance };
+}
+
+export async function quickPlayStatus(config: NearConfig, accountId: string, near = viewClient(config)): Promise<QuickPlayStatus> {
+  const status = await readQuickPlayStatus(config, accountId, near);
+  statusCache.set(cacheId(config.network, accountId), { status, at: Date.now() });
+  return status;
 }
 
 export async function enableQuickPlay(config: NearConfig, accountId: string, wallet: NearWalletBase, near = viewClient(config)) {
@@ -92,6 +112,7 @@ export async function removeQuickPlay(config: NearConfig, accountId: string, wal
   }
   transactionCompleted();
   localStorage.removeItem(storageKey(config.network, accountId));
+  statusCache.delete(cacheId(config.network, accountId));
   localClients.delete(`${config.network}:${accountId}:${key.publicKey}`);
 }
 
@@ -122,7 +143,12 @@ export async function arenaCall(config: NearConfig, accountId: string, wallet: N
   const deposit = options.deposit ?? '0';
   const gasTgas = options.gasTgas ?? 30;
   const eligible = (PLAY_METHODS as readonly string[]).includes(method) && BigInt(deposit) === 0n;
-  const status = eligible ? await quickPlayStatus(config, accountId) : null;
+  const cached = eligible ? statusCache.get(cacheId(config.network, accountId)) : undefined;
+  const status = eligible
+    ? cached && cached.status.kind === 'active' && Date.now() - cached.at < STATUS_TTL_MS
+      ? cached.status
+      : await quickPlayStatus(config, accountId)
+    : null;
   if (status) options.onStatus?.(status);
   if (status?.kind === 'active') {
     const key = readQuickPlayKey(config.network, accountId);

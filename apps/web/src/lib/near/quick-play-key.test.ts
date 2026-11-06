@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { AccessKeyDoesNotExistError, AccountDoesNotExistError, Near, NetworkError, generateKey } from 'near-kit';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { fallbackConfig } from './config';
-import { arenaCall, enableQuickPlay, PLAY_METHODS, QUICK_PLAY_ALLOWANCE, quickPlayStatus, readQuickPlayKey, removeQuickPlay } from './quick-play-key';
+import { arenaCall, enableQuickPlay, PLAY_METHODS, QUICK_PLAY_ALLOWANCE, quickPlayStatus, readQuickPlayKey, removeQuickPlay, resetQuickPlayStatusCache } from './quick-play-key';
 
 const rpc = vi.hoisted(() => ({ accountExists: vi.fn(), getAccessKey: vi.fn(), call: vi.fn(), rpc: { getAccount: vi.fn(), getAccessKey: vi.fn() } }));
 vi.mock('near-kit', async (original) => {
@@ -24,6 +24,7 @@ function store(network = config.network, account = accountId) {
 }
 
 beforeEach(() => {
+  resetQuickPlayStatusCache();
   vi.clearAllMocks();
   storage.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) });

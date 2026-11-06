@@ -114,16 +114,24 @@ export function useLiveDuel(
   useEffect(() => {
     if (!duelId) return;
     let cancelled = false;
-    const sentAt = Date.now();
-    void viewClient(config)
-      .rpc.getStatus()
-      .then((status) => {
-        const half = (Date.now() - sentAt) / 2;
-        if (!cancelled) setOffsetMs(clockOffsetMs(status.sync_info.latest_block_time, sentAt + half));
-      })
-      .catch(() => undefined);
+    // The round phase depends on this offset, so a failed read (a busy RPC node) is retried a few times.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = (attempt: number) => {
+      const sentAt = Date.now();
+      void viewClient(config)
+        .rpc.getStatus()
+        .then((status) => {
+          const half = (Date.now() - sentAt) / 2;
+          if (!cancelled) setOffsetMs(clockOffsetMs(status.sync_info.latest_block_time, sentAt + half));
+        })
+        .catch(() => {
+          if (!cancelled && attempt < 5) timer = setTimeout(() => read(attempt + 1), 1_000 * attempt);
+        });
+    };
+    read(1);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [config, duelId]);
   const onCloseRef = useRef(onClose);

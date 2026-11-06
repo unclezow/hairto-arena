@@ -36,6 +36,8 @@ export interface CycleReport {
 
 /** A push slower than this is logged. */
 const SLOW_PUSH_MS = 2_000;
+/** How long a read of the latest block time is reused. */
+const CHAIN_TIME_TTL_MS = 3_000;
 
 const RELEASE_IF_OWNER = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`;
 const RENEW_IF_OWNER = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end`;
@@ -49,7 +51,9 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PricePusherService.name);
   private readonly instanceId = randomUUID();
   private timer?: NodeJS.Timeout;
-  private running = false;
+  /** Cycles in progress. A slow push no longer blocks the next one, up to `PRICE_PUSH_CONCURRENCY`. */
+  private inFlight = 0;
+  private chainClock?: { blockMs: number; readAt: number };
   /** Publish time last sent on-chain per asset; an unchanged quote is not sent again. */
   private readonly lastPushed = new Map<number, number>();
   /** False without a pusher gas key: display quotes still flow, nothing is written on-chain. */
@@ -113,8 +117,9 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
       gaps: [],
       verdicts: {},
     };
-    if (this.running) return report;
-    this.running = true;
+    if (this.inFlight >= (this.config.get('PRICE_PUSH_CONCURRENCY', { infer: true }) ?? 1))
+      return report;
+    this.inFlight++;
     try {
       if (!(await this.holdLock())) return report;
       report.leader = true;
@@ -136,7 +141,7 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
       report.verdicts = await this.evaluate(assets, ticks, chainNow);
       return report;
     } finally {
-      this.running = false;
+      this.inFlight--;
     }
   }
 
@@ -150,6 +155,8 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
     const interval = this.config.get('PRICE_PUSH_INTERVAL_MS', { infer: true });
     const heartbeat = setInterval(() => {
       void this.holdLock().catch(() => undefined);
+      // With another cycle in flight, that cycle refreshes the quotes already.
+      if (this.inFlight > 1) return;
       void this.quotes.refresh().catch((err: Error) => {
         this.logger.warn(`Quote refresh failed during a push: ${err.message}`);
       });
@@ -327,10 +334,18 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
     return acquired === 'OK';
   }
 
-  /** Time of the latest NEAR block in ms, so the worker's clock never decides staleness. */
+  /**
+   * Time of the latest NEAR block in ms, so the worker's clock never decides staleness. The block time is read at
+   * most every few seconds and moved forward by the local elapsed time in between, which saves an RPC call per cycle.
+   */
   private async chainTime(): Promise<number> {
+    const now = Date.now();
+    const cached = this.chainClock;
+    if (cached && now - cached.readAt < CHAIN_TIME_TTL_MS) return cached.blockMs + (now - cached.readAt);
     const status = await this.near.near.getStatus();
     const at = Date.parse(status.sync_info.latest_block_time);
-    return Number.isFinite(at) ? at : Date.now();
+    const blockMs = Number.isFinite(at) ? at : now;
+    this.chainClock = { blockMs, readAt: now };
+    return blockMs;
   }
 }
