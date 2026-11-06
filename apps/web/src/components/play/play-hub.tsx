@@ -115,10 +115,18 @@ export function PlayHub({
     refetchInterval: 15_000,
   });
   const assets = markets.data?.items ?? [];
+  // Without an explicit choice the default is picked once from the first list and then kept, so a market that
+  // flickers closed on a later refresh never swaps the asset the player sees for another one.
+  const [defaultAssetId, setDefaultAssetId] = useState<number | null>(null);
+  if (selectedAssetId === null && defaultAssetId === null && assets.length > 0) {
+    const first = pickDefaultMarket(assets) ?? assets[0];
+    if (first) setDefaultAssetId(first.assetId);
+  }
+  const activeAssetId = selectedAssetId ?? defaultAssetId;
   const selectedMarket =
-    selectedAssetId === null
-      ? (pickDefaultMarket(assets) ?? assets[0] ?? null)
-      : (assets.find((market) => market.assetId === selectedAssetId) ?? null);
+    activeAssetId === null
+      ? null
+      : (assets.find((market) => market.assetId === activeAssetId) ?? null);
   const [botLevel, setBotLevel] = useState<BotLevel>(() => {
     const requestedLevel = Number(search.get('bot'));
     return requestedLevel === 1 || requestedLevel === 2 || requestedLevel === 3 || requestedLevel === 4
