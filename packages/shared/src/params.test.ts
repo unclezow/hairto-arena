@@ -39,6 +39,7 @@ describe('params mirror the arena contract', () => {
     expect(DUEL.seedRevealTimeoutMs).toBe(rustConst('SEED_REVEAL_TIMEOUT_MS'));
     expect(DUEL.maxTradesPerDuel).toBe(rustConst('MAX_TRADES_PER_DUEL'));
     expect(DUEL.minHoldMs).toBe(rustConst('MIN_HOLD_MS'));
+    expect(DUEL.maxTickLookbackMs).toBe(rustConst('MAX_TICK_LOOKBACK_MS'));
     expect(DUEL.startingHp).toBe(rustConst('STARTING_HP'));
     expect(DUEL.countdownMs).toBe(rustConst('DEFAULT_COUNTDOWN_MS'));
     expect(DUEL.koImmunityMs).toBe(rustConst('DEFAULT_KO_IMMUNITY_MS'));

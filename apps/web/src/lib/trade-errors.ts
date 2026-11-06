@@ -8,6 +8,7 @@ export function reasonOf(err: unknown) {
     ['NotEnoughAllowance', 'QUICK PLAY OUT OF GAS ALLOWANCE'],
     ['hold too short', 'HOLD 3s FIRST'],
     ['price stale', 'PRICE FEED STALE'],
+    ['tick too old', 'PRICE TOO OLD'],
     ['round not open', 'ROUND NOT OPEN'],
     ['reveal window closed', 'REVEAL WINDOW CLOSED'],
     ['trade limit reached', 'NO TRADES LEFT'],

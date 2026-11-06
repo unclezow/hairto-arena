@@ -22,7 +22,10 @@ export const DUEL = {
   /** A bot seed revealed later than this after settlement does not score. */
   seedRevealTimeoutMs: 10 * 60_000,
   maxTradesPerDuel: 4,
-  minHoldMs: 3_000,
+  /** Shortest time between the price of the open and the price of the close. */
+  minHoldMs: 1_000,
+  /** A tick picked for an open or a close may be at most this much older than the block that executes it. */
+  maxTickLookbackMs: 6_000,
   /** A seed ticket may be valid for at most this long. */
   ticketMaxLifetimeMs: 60_000,
   /** A pending duel whose callback never ran can be cleared after this. */

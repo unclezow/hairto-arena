@@ -6,6 +6,7 @@ import {
   type DuelPositionEvent,
   type DuelSnapshotEvent,
   type QuoteEvent,
+  type TickEvent,
 } from '@hairto-arena/shared';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -17,6 +18,13 @@ import { useWalletSession } from './use-wallet-session';
 
 type Status = DuelSnapshotEvent['status'];
 type PositionResult = Omit<DuelPositionEvent, 'duelId' | 'seq' | 'provisional'>;
+
+/** A price tick as the arena holds it; `price` is a plain number. */
+export interface LiveTick {
+  index: number;
+  price: number;
+  publishMs: number;
+}
 
 /** A display quote for the chart, with the publish time in seconds. */
 export interface ChartQuote {
@@ -107,6 +115,8 @@ export function useLiveDuel(
   const { config } = useNearWallet();
   const [state, setState] = useState<LiveDuelState>(initial);
   const [quotes, setQuotes] = useState<ChartQuote[]>([]);
+  /** The latest price tick: the price a trade tapped now is priced at on-chain. */
+  const [tick, setTick] = useState<LiveTick | null>(null);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const seq = useRef(-1);
   // Chain minus local clock, so the countdown and the round end line up with the arena's block times.
@@ -341,7 +351,25 @@ export function useLiveDuel(
     const onQuote = (q: QuoteEvent) => {
       if (q.assetId !== assetId || haltedRef.current) return;
       setQuotes((current) => [...current.slice(-(MAX_QUOTES - 1)), toQuote(q)]);
+    };    // The latest tick: read once from the arena, then kept up by the tick events of the same price room.
+    const keepNewest = (next: LiveTick) =>
+      setTick((current) => (current && current.index >= next.index ? current : next));
+    void viewClient(config)
+      .view<{ index: number; price: number; expo: number; publish_ms: number } | null>(
+        config.contracts.arena,
+        'latest_tick',
+        { asset_id: assetId },
+      )
+      .then((view) => {
+        if (cancelled || !view) return;
+        keepNewest({ index: view.index, price: view.price * 10 ** view.expo, publishMs: view.publish_ms });
+      })
+      .catch(() => undefined);
+    const onTick = (t: TickEvent) => {
+      if (t.assetId !== assetId || haltedRef.current) return;
+      keepNewest({ index: t.tickIndex, price: Number(t.price), publishMs: t.publishMs });
     };
+    socket.on(WS_EVENTS.tick, onTick);
     const join = () => socket.emit(WS_EVENTS.joinPrice, assetId);
     socket.on(WS_EVENTS.quote, onQuote);
     socket.on('connect', join);
@@ -351,9 +379,10 @@ export function useLiveDuel(
       cancelled = true;
       socket.emit(WS_EVENTS.leavePrice, assetId);
       socket.off(WS_EVENTS.quote, onQuote);
+      socket.off(WS_EVENTS.tick, onTick);
       socket.off('connect', join);
     };
-  }, [assetId]);
+  }, [assetId, config]);
 
   // Chain times moved to the local clock.
   const startTs = state.startTs === null ? null : toLocalSec(state.startTs, offsetMs);
@@ -376,5 +405,5 @@ export function useLiveDuel(
             ? 'live'
             : 'reveal';
 
-  return { state: { ...state, startTs, koTs }, quotes, now, phase, endTs };
+  return { state: { ...state, startTs, koTs }, quotes, tick, now, phase, endTs };
 }

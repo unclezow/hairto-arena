@@ -10,6 +10,10 @@ export interface StoredPosition {
   salt: string;
   /** Local ms when the open transaction was sent, for the minimum hold guard. */
   openedAt: number;
+  /** The tick the open was priced at (the latest the browser had), so the trade is priced at the tap. */
+  tickIndex?: number;
+  tickPrice?: number;
+  tickPublishMs?: number;
 }
 
 const positionKey = (accountId: string, duelId: string) => `duel:${accountId}:${duelId}:position`;

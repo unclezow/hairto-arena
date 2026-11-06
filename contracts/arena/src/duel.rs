@@ -9,12 +9,14 @@ use near_sdk::{env, ext_contract, near, require, AccountId, Promise, PromiseErro
 use crate::damage::{apply_hp, move_ppm, net_pnl_ppm, unrevealed_penalty_ppm};
 use crate::events::ArenaEvent;
 use crate::params::{
-    GAS_FOR_CAN_PLAY, GAS_FOR_ON_START_DUEL, MAX_TRADES_PER_DUEL, MIN_GAS_FOR_START_DUEL,
-    MIN_HOLD_MS, PENDING_TIMEOUT_MS, REVEAL_GRACE_MS, SEED_REVEAL_TIMEOUT_MS, STARTING_HP,
-    TICKET_DOMAIN, TICKET_MAX_LIFETIME_MS, VOID_AFTER_OUTAGE_MS,
+    GAS_FOR_CAN_PLAY, GAS_FOR_ON_START_DUEL, MAX_TICK_LOOKBACK_MS, MAX_TRADES_PER_DUEL,
+    MIN_GAS_FOR_START_DUEL, MIN_HOLD_MS, PENDING_TIMEOUT_MS, REVEAL_GRACE_MS,
+    SEED_REVEAL_TIMEOUT_MS, STARTING_HP, TICKET_DOMAIN, TICKET_MAX_LIFETIME_MS,
+    VOID_AFTER_OUTAGE_MS,
 };
 use crate::types::{
-    ActiveSlot, Dir, Duel, DuelId, Hash32, Outcome, Position, SeedTicket, Side, Status, TickIndex,
+    ActiveSlot, Dir, Duel, DuelId, Hash32, Outcome, Position, SeedTicket, Side, Status, Tick,
+    TickIndex,
 };
 use crate::{Arena, ArenaExt};
 
@@ -288,7 +290,16 @@ impl Arena {
     // ---------------------------------------------------------------- positions
 
     /// Fighter or bot: opens a hidden position. `commit` is `compute_commit(dir, salt, duel_id, player)`.
-    pub fn open_position(&mut self, duel_id: DuelId, commit: Base64VecU8) {
+    ///
+    /// `tick_index` is the tick the caller saw when it sent the call, so the position is priced at that moment
+    /// and not at whatever tick is latest when the transaction lands. It must be recent (`MAX_TICK_LOOKBACK_MS`)
+    /// and not older than the round. Without it the latest tick is used.
+    pub fn open_position(
+        &mut self,
+        duel_id: DuelId,
+        commit: Base64VecU8,
+        tick_index: Option<TickIndex>,
+    ) {
         let duel = self.active_duel(duel_id);
         let (side, player) = self.caller_side(&duel);
         let now = Self::now_ms();
@@ -306,7 +317,14 @@ impl Arena {
             "price stale"
         );
 
-        let open_tick = self.latest_index(duel.asset_id);
+        let open_tick = match tick_index {
+            None => self.latest_index(duel.asset_id),
+            Some(index) => {
+                let tick = self.picked_tick(&duel, index, now);
+                require!(tick.publish_ms >= duel.start_ms, "tick before the round");
+                index
+            }
+        };
         pos.commit = commit;
         pos.open_tick = open_tick;
         pos.open_ms = now;
@@ -322,9 +340,17 @@ impl Arena {
         .emit();
     }
 
-    /// Fighter or bot: reveals and closes the open position. Before the round end it needs a 3 s hold and a fresh
-    /// price and is priced at the latest tick; in the reveal grace it is priced at the round-end tick.
-    pub fn close_position(&mut self, duel_id: DuelId, dir: Dir, salt: Base64VecU8) {
+    /// Fighter or bot: reveals and closes the open position. Before the round end it needs a hold (`MIN_HOLD_MS`)
+    /// and a fresh price. It is priced at the `tick_index` the caller saw when it sent the call (recent, see
+    /// `open_position`; the hold is then counted between the two ticks) or, without one, at the latest tick. In the
+    /// reveal grace it is priced at the round-end tick.
+    pub fn close_position(
+        &mut self,
+        duel_id: DuelId,
+        dir: Dir,
+        salt: Base64VecU8,
+        tick_index: Option<TickIndex>,
+    ) {
         let mut duel = self.active_duel(duel_id);
         let (side, player) = self.caller_side(&duel);
         let mut pos = self.position_of(duel_id, side);
@@ -339,12 +365,25 @@ impl Arena {
         let end = duel.effective_end_ms();
         let in_round = now < end;
         let close_tick = if in_round {
-            require!(now - pos.open_ms >= MIN_HOLD_MS, "hold too short");
+            if tick_index.is_none() {
+                require!(now - pos.open_ms >= MIN_HOLD_MS, "hold too short");
+            }
             require!(
                 !self.is_stale_with(duel.asset_id, duel.max_staleness_ms),
                 "price stale"
             );
-            self.latest_index(duel.asset_id)
+            match tick_index {
+                None => self.latest_index(duel.asset_id),
+                Some(index) => {
+                    let closed_at = self.picked_tick(&duel, index, now).publish_ms;
+                    let opened_at = self.tick(duel.asset_id, pos.open_tick).publish_ms;
+                    require!(
+                        closed_at.saturating_sub(opened_at) >= MIN_HOLD_MS,
+                        "hold too short"
+                    );
+                    index
+                }
+            }
         } else if now < end + REVEAL_GRACE_MS {
             self.try_tick_at(duel.asset_id, end)
                 .unwrap_or_else(|| env::panic_str("no tick at round end"))
@@ -670,5 +709,20 @@ impl Arena {
         self.duels.remove(&duel_id);
         self.positions.remove(&(duel_id, Side::Fighter));
         self.positions.remove(&(duel_id, Side::Bot));
+    }
+}
+
+impl Arena {
+    /// A tick the caller picked: it must exist for the duel's asset and be at most `MAX_TICK_LOOKBACK_MS` older than
+    /// this block. A tick from the future cannot exist (the pusher only writes ticks up to its own block time).
+    fn picked_tick(&self, duel: &Duel, index: TickIndex, now: u64) -> &Tick {
+        let tick = self
+            .try_tick(duel.asset_id, index)
+            .unwrap_or_else(|| env::panic_str("tick out of range"));
+        require!(
+            now.saturating_sub(tick.publish_ms) <= MAX_TICK_LOOKBACK_MS,
+            "tick too old"
+        );
+        tick
     }
 }

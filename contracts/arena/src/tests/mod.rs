@@ -22,7 +22,7 @@ use near_sdk::test_utils::{get_logs, VMContextBuilder};
 use near_sdk::{testing_env, AccountId, CurveType, Gas, PublicKey};
 
 use crate::duel::{commit_hash, seed_hash, ticket_message_bytes};
-use crate::types::{AssetId, BotLevel, Dir, DuelId, Role, SeedTicket, TickInput};
+use crate::types::{AssetId, BotLevel, Dir, DuelId, Role, SeedTicket, TickIndex, TickInput};
 use crate::Arena;
 
 /// Block time of the first call, in ms.
@@ -262,13 +262,37 @@ impl World {
     }
 
     pub fn open(&mut self, duel_id: DuelId, player: &AccountId, dir: Dir, salt: u8) {
+        self.open_at(duel_id, player, dir, salt, None);
+    }
+
+    /// Opens at the tick the caller says it saw (`None`: the latest tick).
+    pub fn open_at(
+        &mut self,
+        duel_id: DuelId,
+        player: &AccountId,
+        dir: Dir,
+        salt: u8,
+        tick: Option<TickIndex>,
+    ) {
         let commit = commit_hash(dir, &[salt; 32], duel_id, player);
-        self.call(player).open_position(duel_id, b64(&commit));
+        self.call(player).open_position(duel_id, b64(&commit), tick);
     }
 
     pub fn close(&mut self, duel_id: DuelId, player: &AccountId, dir: Dir, salt: u8) {
+        self.close_at(duel_id, player, dir, salt, None);
+    }
+
+    /// Closes at the tick the caller says it saw (`None`: the latest tick).
+    pub fn close_at(
+        &mut self,
+        duel_id: DuelId,
+        player: &AccountId,
+        dir: Dir,
+        salt: u8,
+        tick: Option<TickIndex>,
+    ) {
         self.call(player)
-            .close_position(duel_id, dir, b64(&[salt; 32]));
+            .close_position(duel_id, dir, b64(&[salt; 32]), tick);
     }
 
     pub fn reveal(&mut self, duel_id: DuelId) {

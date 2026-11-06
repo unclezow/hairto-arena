@@ -134,7 +134,7 @@ export function TitleScreen() {
                 <p>
                   Press BATTLE for a {DUEL.roundDurationMs / 1000}-second paper duel on live market
                   prices. Open LONG if you expect a rise, SHORT if you expect a fall. Close after at
-                  least {DUEL.minHoldMs / 1000} seconds: profit damages your opponent, a loss damages you.
+                  least {DUEL.minHoldMs / 1000} {DUEL.minHoldMs === 1000 ? 'second' : 'seconds'}: profit damages your opponent, a loss damages you.
                   Up to {DUEL.maxTradesPerDuel} trades per duel; positions stay hidden until
                   revealed.
                 </p>

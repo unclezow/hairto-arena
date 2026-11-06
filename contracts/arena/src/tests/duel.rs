@@ -276,12 +276,16 @@ fn open_rules() {
     w.advance(start);
     // Stranger and bad commits.
     assert!(fails(|| w.open(id, &stranger(), Dir::Long, 1)));
-    assert!(fails(|| w
-        .call(&fighter())
-        .open_position(id, b64(&[0; 32]))));
-    assert!(fails(|| w
-        .call(&fighter())
-        .open_position(id, b64(&[1; 31]))));
+    assert!(fails(|| w.call(&fighter()).open_position(
+        id,
+        b64(&[0; 32]),
+        None
+    )));
+    assert!(fails(|| w.call(&fighter()).open_position(
+        id,
+        b64(&[1; 31]),
+        None
+    )));
     assert!(fails(|| w.open(99, &fighter(), Dir::Long, 1)));
 
     w.open(id, &fighter(), Dir::Long, 1);
@@ -346,9 +350,9 @@ fn hold_too_short_and_wrong_salt() {
     let (id, start) = w.start();
     w.advance(start);
     w.open(id, &fighter(), Dir::Long, 1);
-    w.advance(start + 2_000);
+    w.advance(start + 500);
     assert!(fails(|| w.close(id, &fighter(), Dir::Long, 1)));
-    w.advance(start + 3_000);
+    w.advance(start + 1_000);
     assert!(
         fails(|| w.close(id, &fighter(), Dir::Long, 2)),
         "wrong salt"
@@ -742,4 +746,101 @@ fn many_duels_in_sequence() {
     }
     assert_eq!(w.arena.score_of(1, fighter()).duels, 3);
     assert_eq!(w.arena.nonce_of(fighter()), 3);
+}
+
+// ---------------------------------------------------------------- positions priced at the tick the caller saw
+
+#[test]
+fn close_is_priced_at_the_tick_the_caller_picked() {
+    let mut w = World::new();
+    let (id, start) = w.start();
+    w.advance(start);
+    w.open(id, &fighter(), Dir::Long, 1);
+    w.advance(start + 2_000);
+    // The caller sees a +50 ppm tick and sends the close; before it lands the price moves on to +100 ppm.
+    w.tick_price(moved(50));
+    let seen = w.arena.latest_tick_index(BTC);
+    w.tick_price(moved(100));
+    w.tick_price(moved(100));
+    w.close_at(id, &fighter(), Dir::Long, 1, Some(seen));
+    let e = find_event("position_closed").unwrap();
+    assert_eq!(e["data"]["close_tick"], seen);
+    assert_eq!(
+        e["data"]["net_pnl_ppm"], 50,
+        "the tick seen, not the latest"
+    );
+    assert_eq!(e["data"]["opponent_delta"], -200);
+}
+
+#[test]
+fn open_is_priced_at_the_tick_the_caller_picked() {
+    let mut w = World::new();
+    let (id, start) = w.start();
+    w.advance(start);
+    let seen = w.arena.latest_tick_index(BTC);
+    w.advance(start + 2_000);
+    w.open_at(id, &fighter(), Dir::Long, 1, Some(seen));
+    let p = w.arena.get_position(id, Side::Fighter).unwrap();
+    assert_eq!(p.open_tick, seen, "not the latest tick");
+    assert!(p.open_tick < w.arena.latest_tick_index(BTC));
+}
+
+#[test]
+fn a_picked_tick_must_exist_and_be_recent() {
+    let mut w = World::new();
+    let (id, start) = w.start();
+    w.advance(start);
+    let early = w.arena.latest_tick_index(BTC);
+    w.advance(start + 8_000);
+    assert!(
+        fails(|| w.open_at(id, &fighter(), Dir::Long, 1, Some(early))),
+        "older than the lookback"
+    );
+    let latest = w.arena.latest_tick_index(BTC);
+    assert!(
+        fails(|| w.open_at(id, &fighter(), Dir::Long, 1, Some(latest + 1))),
+        "not pushed yet"
+    );
+    assert!(fails(|| w.open_at(id, &fighter(), Dir::Long, 1, Some(0))));
+    // A recent tick, a few seconds old, is fine.
+    w.open_at(id, &fighter(), Dir::Long, 1, Some(latest - 4));
+    assert!(w.arena.get_position(id, Side::Fighter).unwrap().open);
+}
+
+#[test]
+fn a_picked_tick_cannot_predate_the_round() {
+    let mut w = World::new();
+    let (id, start) = w.start();
+    w.advance(start + 2_000);
+    let before = w.arena.tick_at(BTC, start - 1_000);
+    assert!(fails(|| w.open_at(
+        id,
+        &fighter(),
+        Dir::Long,
+        1,
+        Some(before)
+    )));
+    let at_start = w.arena.tick_at(BTC, start);
+    w.open_at(id, &fighter(), Dir::Long, 1, Some(at_start));
+}
+
+#[test]
+fn the_hold_is_counted_between_the_picked_ticks() {
+    let mut w = World::new();
+    let (id, start) = w.start();
+    w.advance(start);
+    let opened = w.arena.latest_tick_index(BTC);
+    w.open_at(id, &fighter(), Dir::Long, 1, Some(opened));
+    w.advance(start + 3_000);
+    assert!(
+        fails(|| w.close_at(id, &fighter(), Dir::Long, 1, Some(opened))),
+        "same tick: no hold"
+    );
+    assert!(
+        fails(|| w.close_at(id, &fighter(), Dir::Long, 1, Some(opened - 1))),
+        "a tick before the open"
+    );
+    // One second after the open is enough, even though the call lands later.
+    w.close_at(id, &fighter(), Dir::Long, 1, Some(opened + 1));
+    assert!(!w.arena.get_position(id, Side::Fighter).unwrap().open);
 }

@@ -12,7 +12,11 @@ pub const REVEAL_GRACE_MS: u64 = 10_000;
 /// A bot seed revealed later than this after settlement records no score, and the duel can be pruned.
 pub const SEED_REVEAL_TIMEOUT_MS: u64 = 600_000;
 pub const MAX_TRADES_PER_DUEL: u8 = 4;
-pub const MIN_HOLD_MS: u64 = 3_000;
+/// Shortest time between the price of the open and the price of the close.
+pub const MIN_HOLD_MS: u64 = 1_000;
+/// A tick the caller picks for an open or a close may be at most this much older than the block that executes it.
+/// It covers the age of the tick when it was seen plus the time the transaction needs to land.
+pub const MAX_TICK_LOOKBACK_MS: u64 = 6_000;
 pub const STARTING_HP: u16 = 1_000;
 
 // ---- Seed tickets and pending duels ----

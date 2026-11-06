@@ -108,7 +108,7 @@ fn compute_commit_matches_close() {
         commit.0,
         commit_hash(Dir::Short, &[5u8; 32], id, &fighter()).to_vec()
     );
-    w.call(&fighter()).open_position(id, commit);
+    w.call(&fighter()).open_position(id, commit, None);
     w.advance(start + 3_000);
     w.close(id, &fighter(), Dir::Short, 5);
     assert_eq!(event_names(), vec!["position_closed"]);
