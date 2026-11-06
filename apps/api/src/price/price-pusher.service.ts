@@ -16,7 +16,7 @@ import { ActiveAssetsService, type ActiveAsset } from './active-assets.service.j
 import { ORACLE_KEYS, type OracleState } from './oracle-keys.js';
 import { oracleVerdict } from './oracle-health.js';
 import { ORACLE_WRITER, PRICE_PROVIDER } from './price.tokens.js';
-import type { OracleWriter, RecordedTick, TickUpdate } from './oracle-writer.js';
+import type { OracleWriter, PushResult, RecordedTick, TickUpdate } from './oracle-writer.js';
 import type { PriceProvider } from './price-provider.js';
 import { QuoteService } from './quote.service.js';
 import { TickSink } from './tick-sink.js';
@@ -33,6 +33,9 @@ export interface CycleReport {
   gaps: number[];
   verdicts: Record<number, OracleHealth>;
 }
+
+/** A push slower than this is logged. */
+const SLOW_PUSH_MS = 2_000;
 
 const RELEASE_IF_OWNER = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`;
 const RENEW_IF_OWNER = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end`;
@@ -126,7 +129,7 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
       if (assets.length === 0 || !this.canPush) return report;
 
       const chainNow = await this.chainTime();
-      const { ticks, gaps } = await this.pushWithRetry(assets);
+      const { ticks, gaps } = await this.timedPush(assets);
       report.ticks = ticks;
       report.gaps = gaps;
       await this.sink.publish(ticks);
@@ -137,17 +140,44 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * A push waits for the transaction, which can take many seconds on a slow RPC. Meanwhile the lock keeps being
+   * renewed and display quotes keep refreshing, so a slow push never makes a market look stale or hands the
+   * lock to a standby. A slow push is logged with its duration.
+   */
+  private async timedPush(assets: ActiveAsset[]) {
+    const startedAt = Date.now();
+    const interval = this.config.get('PRICE_PUSH_INTERVAL_MS', { infer: true });
+    const heartbeat = setInterval(() => {
+      void this.holdLock().catch(() => undefined);
+      void this.quotes.refresh().catch((err: Error) => {
+        this.logger.warn(`Quote refresh failed during a push: ${err.message}`);
+      });
+    }, interval);
+    try {
+      return await this.pushWithRetry(assets);
+    } finally {
+      clearInterval(heartbeat);
+      const took = Date.now() - startedAt;
+      if (took >= SLOW_PUSH_MS) {
+        this.logger.warn(
+          `push_ticks for assets ${assets.map((a) => a.assetId).join(', ')} took ${took} ms`,
+        );
+      }
+    }
+  }
+
   /** One immediate retry with more gas and a fresh price; what still fails is a gap. */
   private async pushWithRetry(assets: ActiveAsset[]) {
     const updates = this.updatesFor(assets);
     if (updates.length === 0) return { ticks: [], gaps: [] };
-    const first = await this.writer.push(updates);
+    const first = await this.pushBounded(updates);
     const ticks = [...first.ticks];
     let failedIds = first.failed.map((f) => f.assetId);
 
     if (failedIds.length > 0) {
       this.logger.warn(`Push failed for assets ${failedIds.join(', ')}, retrying with more gas`);
-      const retry = await this.writer.push(
+      const retry = await this.pushBounded(
         this.updatesFor(assets.filter((a) => failedIds.includes(a.assetId))),
         { gasMultiplier: 1.5 },
       );
@@ -157,6 +187,37 @@ export class PricePusherService implements OnModuleInit, OnModuleDestroy {
     }
     for (const t of ticks) this.lastPushed.set(t.assetId, t.publishMs);
     return { ticks, gaps: failedIds };
+  }
+
+  /**
+   * One push, but never longer than `PRICE_PUSH_TIMEOUT_MS`. A transaction can hang for tens of seconds on the
+   * testnet; waiting for it would leave the oracle without ticks and void running duels. On timeout the push counts
+   * as failed, so the retry sends a fresh price right away on another lane. The stuck transaction is left to
+   * finish on its own: the arena ignores a tick whose publish time does not advance.
+   */
+  private async pushBounded(
+    updates: TickUpdate[],
+    options?: { gasMultiplier?: number },
+  ): Promise<PushResult> {
+    if (updates.length === 0) return { ticks: [], failed: [] };
+    const limitMs = this.config.get('PRICE_PUSH_TIMEOUT_MS', { infer: true }) ?? 6_000;
+    const attempt = this.writer.push(updates, options);
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<PushResult>((resolve) => {
+      timer = setTimeout(() => {
+        this.logger.warn(`push_ticks still pending after ${limitMs} ms, sending a fresh one`);
+        resolve({
+          ticks: [],
+          failed: updates.map((u) => ({ assetId: u.assetId, error: 'timeout' })),
+        });
+      }, limitMs);
+    });
+    attempt.catch(() => undefined);
+    try {
+      return await Promise.race([attempt, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** The latest quote of each asset, skipping assets whose quote has not moved since the last push. */

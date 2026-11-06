@@ -179,6 +179,8 @@ export const envSchema = z.object({
   PRICE_DEMAND_TTL_SEC: z.coerce.number().int().positive().default(30),
   /** How long the bot worker waits for a fresh on-chain tick before giving up on a ticket. */
   PRICE_PRIME_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  /** A `push_ticks` transaction pending longer than this is given up and sent again with a fresh price. */
+  PRICE_PUSH_TIMEOUT_MS: z.coerce.number().int().positive().default(6000),
   HERMES_POLL_MS: z.coerce.number().int().positive().default(500),
   HERMES_STREAM_RETRY_MS: z.coerce.number().int().positive().default(5000),
   MOCK_SEED: z

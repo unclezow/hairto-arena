@@ -116,6 +116,41 @@ describe('PricePusherService', () => {
     await s.service.onModuleDestroy();
   });
 
+  it('keeps renewing the lock and refreshing quotes while a push is slow', async () => {
+    vi.useFakeTimers();
+    try {
+      const s = setup({ demanded: [BTC] });
+      let finish!: () => void;
+      vi.mocked(s.writer.push).mockImplementationOnce(
+        (updates: TickUpdate[]) =>
+          new Promise((resolve) => {
+            finish = () =>
+              resolve({
+                ticks: updates.map((u) => ({
+                  assetId: u.assetId,
+                  tickIndex: 1,
+                  price: u.price,
+                  expo: u.expo,
+                  publishMs: u.publishMs,
+                })),
+                failed: [],
+              });
+          }),
+      );
+      s.service.onModuleInit();
+      const cycle = s.service.runCycle(new Date(NOW));
+      await vi.advanceTimersByTimeAsync(3_500);
+      const refreshedWhileWaiting = vi.mocked(s.quotes.refresh).mock.calls.length;
+      finish();
+      const report = await cycle;
+      expect(refreshedWhileWaiting).toBeGreaterThan(2);
+      expect(report.ticks).toHaveLength(1);
+      await s.service.onModuleDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends no transaction when nothing is demanded, but still refreshes display quotes', async () => {
     const s = setup({ demanded: [] });
     s.service.onModuleInit();
