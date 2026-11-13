@@ -1,0 +1,93 @@
+# Backend stack for a single server behind Traefik. Run with:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# .env.prod needs POSTGRES_PASSWORD, API_HOST and TRAEFIK_NETWORK. Process settings live in apps/api/.env and
+# apps/indexer/.env on the server (never committed).
+name: hairto-arena-near
+
+x-app: &app
+  build: .
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  environment: &app-env
+    DATABASE_URL: postgresql://hairto:${POSTGRES_PASSWORD}@postgres:5432/hairto
+    REDIS_URL: redis://redis:6379
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hairto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: hairto
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hairto -d hairto']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Applies pending migrations, then exits. Run it before the api and worker.
+  migrate:
+    <<: *app
+    profiles: ['migrate']
+    restart: 'no'
+    working_dir: /repo/apps/api
+    command: ['pnpm', 'db:deploy']
+
+  api:
+    <<: *app
+    working_dir: /repo/apps/api
+    command: ['node', 'dist/main.js']
+    env_file: apps/api/.env
+    environment:
+      <<: *app-env
+      PORT: '3001'
+    networks: [default, traefik]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: ${TRAEFIK_NETWORK}
+      traefik.http.routers.hairto-api.rule: Host(`${API_HOST}`)
+      traefik.http.routers.hairto-api.entrypoints: websecure
+      traefik.http.routers.hairto-api.tls.certresolver: letsencrypt
+      traefik.http.services.hairto-api.loadbalancer.server.port: '3001'
+
+  # Exactly one worker may run: it signs with the price pusher, bot and keeper keys.
+  worker:
+    <<: *app
+    working_dir: /repo/apps/api
+    command: ['node', 'dist/worker.js']
+    env_file: apps/api/.env
+    environment: *app-env
+
+  indexer:
+    <<: *app
+    working_dir: /repo/apps/indexer
+    command: ['node', 'dist/main.js']
+    env_file: apps/indexer/.env
+    environment: *app-env
+
+networks:
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK}
+
+volumes:
+  postgres-data:
+  redis-data:

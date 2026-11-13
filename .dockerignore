@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/dist-worker
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+apps/web
+contracts
+env-backup.tar.gz
+*.tar.gz
+.git
