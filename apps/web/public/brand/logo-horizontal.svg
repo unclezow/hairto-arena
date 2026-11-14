@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="Hairto Arena on NEAR">
+  <rect width="1280" height="400" fill="#0b0d10"/>
+  <g transform="translate(40 40) scale(0.625)">
+    <rect width="512" height="512" rx="112" fill="#11151a"/>
+    <path d="M236 52 A204 204 0 0 0 236 460" fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="round"/>
+    <path d="M276 52 A204 204 0 0 1 276 460" fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="round"/>
+    <polygon points="146,372 146,196 206,136 206,372" fill="#22c55e"/>
+    <polygon points="306,140 366,140 366,316 306,376" fill="#ef4444"/>
+    <polyline points="206,318 238,262 270,296 306,214" fill="none" stroke="#ededed" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="306" cy="214" r="14" fill="#ededed"/>
+  </g>
+  <text x="400" y="200" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="6" fill="#ededed">HAIRTO</text>
+  <text x="400" y="296" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="6" fill="#22c55e">ARENA</text>
+  <rect x="860" y="236" width="4" height="60" fill="#929692"/>
+  <text x="884" y="282" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="48" font-weight="600" letter-spacing="4" fill="#929692">on NEAR</text>
+</svg>

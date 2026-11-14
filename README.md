@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="apps/web/public/brand/logo-horizontal.png" alt="Hairto Arena on NEAR" width="560" />
+</p>
+
 # Hairto Arena (NEAR)
 
 Hairto Arena on NEAR: 30-second paper-trading duels against NPC bots with on-chain commit-reveal, a no-loss USDC (mock) vault that funds a Season Pot, Backers who pick Fighters, and NEP-245 characters.

@@ -29,7 +29,9 @@ export function Nav() {
   return (
     <header className="border-b border-white/10">
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="font-mono text-lg font-bold tracking-tight">
+        <Link href="/" className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/logo-mark.svg" alt="" width={28} height={28} />
           Hairto Arena
         </Link>
         <ul className="flex flex-wrap items-center gap-4 text-sm text-white/70">
