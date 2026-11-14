@@ -50,6 +50,11 @@ export const envSchema = z.object({
   NEAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   /** RPC endpoint. Defaults to the manifest's (`deployments/<network>.json`). */
   NEAR_RPC_URL: z.url().optional(),
+  /**
+   * The RPC URL handed to browsers (`GET /config`), normally `https://<api host>/api/v1/rpc`. It keeps the provider
+   * key in `NEAR_RPC_URL` off the network. When unset the clients get `NEAR_RPC_URL` itself.
+   */
+  PUBLIC_RPC_URL: z.url().optional(),
   /** Contract ids. Each defaults to the manifest's. */
   ARENA_ID: accountId.optional(),
   VAULT_ID: accountId.optional(),
@@ -214,6 +219,8 @@ export const envSchema = z.object({
   /** Stricter than the general write limit: a duel takes at least 30 seconds, so more is not play. */
   RATE_LIMIT_DUEL_PER_WINDOW: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_ADMIN_PER_WINDOW: z.coerce.number().int().positive().default(30),
+  /** The browser reads the chain through `POST /rpc`, so one page makes many calls. */
+  RATE_LIMIT_RPC_PER_WINDOW: z.coerce.number().int().positive().default(600),
   /** An admin session older than this must sign in again before it can change anything. */
   ADMIN_FRESH_SIGNATURE_SEC: z.coerce
     .number()

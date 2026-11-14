@@ -57,7 +57,7 @@ export class PublicConfigController {
     const d = this.near.deployment;
     return {
       network: d.network,
-      rpcUrl: d.rpcUrl,
+      rpcUrl: this.config.get('PUBLIC_RPC_URL', { infer: true }) ?? d.rpcUrl,
       explorerUrl: d.explorerUrl,
       contracts: d.contracts,
       bots: d.accounts.bots,

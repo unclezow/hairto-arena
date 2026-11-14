@@ -7,7 +7,7 @@ import { AppException, upstreamUnavailable } from '../common/errors.js';
 import { SessionService } from '../auth/session.service.js';
 import { RateLimitService } from './rate-limit.service.js';
 
-export type RateLimitGroup = 'read' | 'write' | 'auth' | 'duel' | 'admin';
+export type RateLimitGroup = 'read' | 'write' | 'auth' | 'duel' | 'admin' | 'rpc';
 
 const LIMIT_SETTING = {
   read: 'RATE_LIMIT_READ_PER_WINDOW',
@@ -15,6 +15,7 @@ const LIMIT_SETTING = {
   auth: 'RATE_LIMIT_AUTH_PER_WINDOW',
   duel: 'RATE_LIMIT_DUEL_PER_WINDOW',
   admin: 'RATE_LIMIT_ADMIN_PER_WINDOW',
+  rpc: 'RATE_LIMIT_RPC_PER_WINDOW',
 } as const satisfies Record<RateLimitGroup, keyof Env>;
 
 const RATE_LIMIT_KEY = 'rateLimitGroup';

@@ -11,6 +11,7 @@ import { PriceStatusModule } from './price/oracle-status.service.js';
 import { PublicConfigModule } from './public-config/public-config.module.js';
 import { ReadModelModule } from './read-model/read-model.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
+import { RpcProxyModule } from './rpc-proxy/rpc-proxy.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
 
 /** HTTP API + WebSocket gateway (entrypoint: main.ts). */
@@ -27,6 +28,7 @@ import { SeasonsModule } from './seasons/seasons.module.js';
     SeasonsModule,
     MeModule,
     PublicConfigModule,
+    RpcProxyModule,
     ReadModelModule,
     AdminModule,
   ],
